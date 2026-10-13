@@ -39,3 +39,13 @@ Author's handling for now: Tier 2 uses linear regression, logistic regression an
 - REVIEW_REQUIRED: 2.18 claim that weight decay and L2 regularization differ under adaptive optimizers (AdamW); 2.21 batch-size/learning-rate scaling heuristics and large-batch generalization statement; 2.22 "1–5 epochs for fine-tuning" rule of thumb and "LLM pretraining often <1 epoch" statement; 2.20 Robbins–Monro conditions are stated without derivation.
 - NOT_TESTED: the exercises in 2.14–2.25 (quantile loss, concentric rings, throughput vs batch size, LR-range test) are described, not shipped as code.
 - Lab limitation: the multiclass model (`fit_softmax_regression`) lives in the lab file, not `mlkit.py`; binary logistic regression is the library-verified model.
+
+## Batch 3 (2.26–2.36)
+
+- TESTED: `lab/lab_03_generalization.py` (14 test cases in `lab/test_lab_03_generalization.py`, incl. lasso vs scikit-learn). Whole tier: 32 `code/` + 33 `lab/` (9 + 10 + 14) = 65 tests.
+- Demonstrations changed during authoring because the first version did not show the claimed effect (kept honest, documented): (a) gradient-descent early stopping on a degree-9 polynomial showed no validation minimum, so the early-stopping demo uses a 60-feature/30-sample linear problem; (b) bias–variance with *random* training inputs showed degree-1 variance above degree-3 (extra variance from sampling x), so `bias_variance_poly` now defaults to a fixed design and 2.29 explains the difference; (c) a first temporal-leakage demo (random walk + linear fit) showed no effect, replaced by 1-NN on the time index.
+- Early-stopping demo effect is small (≈2–15% validation increase depending on seed); the test asserts ≥2% for four seeds.
+- TERMINOLOGY to approve in `GLOSSARY.md` (not inserted): "bias" has five meanings (2.28), "variance" (model) vs variance (1.30) (2.29), "data leakage" vs "overfitting", "generalization gap", "domain classifier", PSI.
+- DUPLICATION: Dropout/weight decay (3.28/3.29), AdamW (4.9), drift monitoring (31), benchmark contamination (15/30) are taught in later tiers; Tier 2 gives the concept and points forward.
+- REVIEW_REQUIRED: 2.27/2.30 double-descent / benign overfitting statements (need citations); 2.31 statistical-learning-theory bounds statement; 2.32 weight decay vs L2 under Adam; 2.34 PSI thresholds (convention); 2.36 Bayesian optimization / Hyperband descriptions (no code here); 2.35 statement that one or two hyperparameters usually dominate (general observation, cite Bergstra & Bengio before FINAL).
+- NOT_TESTED: nested cross-validation is described in 2.36 but not implemented; importance weighting in 2.34's exercise; exercises in 2.26–2.36 are described, not shipped.
