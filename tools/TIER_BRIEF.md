@@ -24,3 +24,17 @@ Do not touch other tiers' folders or top-level files. Do NOT run git commands (t
 Verify: run pytest in lab/; run `python tools/check_interactive.py <your interactive dir> --shots /tmp/shots_XX` (must report ok)
 and LOOK at 2-3 screenshots + 2-3 figures (Read the png) to fix overlapping/unreadable labels; run make_figures.py.
 Keep each GIF < 600KB, PNG < 250KB (use fewer frames / lower dpi). Final reply: <=10 lines: files made, test results, caveats.
+
+
+# >>> OVERRIDING FORMAT RULE (from the book owner; supersedes the README.md bullet above) <<<
+The owner requires EACH roadmap concept to have its OWN .md file, strictly following BOOK_SPECIFICATION.md
+("STANDARD CONCEPT FORMAT", "DEPTH RULE", "CODE RULES", "ACCURACY RULE", "DUPLICATION RULE"). Do NOT put concept teaching in one unified file.
+* Canonical list + filenames: `python tools/concept_list.py <tier>` -> `concepts/{TT}.{NN}-{slug}.md` (use EXACTLY these names; one file per roadmap item, none skipped, none added/renumbered).
+* Each concept file = exactly:
+  `## X.Y Concept Name`, then `Metadata:` (Tier, Phase, Priority, Difficulty, Interview Importance, Hands-on Importance, Prerequisites, Leads To; prerequisites/leads-to are links to other concept files or tier folders),
+  then the 23 sections with EXACTLY these headings, in order: `### 1. WHAT IS IT?` `### 2. WHY DOES IT EXIST?` `### 3. DETAILED EXPLANATION` `### 4. HOW DOES IT WORK?` `### 5. SIMPLE EXAMPLE` `### 6. TECHNICAL EXAMPLE` `### 7. CODE` `### 8. INPUT → PROCESS → OUTPUT` `### 9. ENTERPRISE USE CASE` `### 10. AI ENGINEERING CONNECTION` `### 11. ADVANTAGES` `### 12. LIMITATIONS` `### 13. TRADE-OFFS` `### 14. COMMON MISTAKES` `### 15. PERFORMANCE / COST CONSIDERATIONS` `### 16. SECURITY CONSIDERATIONS` `### 17. INTERVIEW EXPLANATION` `### 18. RAPID-FIRE ANSWER` `### 19. INTERVIEW QUESTIONS` (with Basic / Intermediate / Advanced / Scenario) `### 20. HANDS-ON EXERCISE` `### 21. REVISION QUESTIONS` `### 22. RELATED CONCEPTS` `### 23. ONE-LINE MEMORY HOOK`.
+  Per the DEPTH RULE do NOT pad: tiny concepts are short (a sentence or a few lines per section; where a section truly does not apply write one line saying why, never delete the heading). Major concepts get full depth (the ones the old README treated in depth).
+* VISUALS ARE REQUIRED IN CONCEPT FILES: embed the relevant labelled figure/GIF (`![caption](../figures/xx.png)`) and link the relevant interactive page (`[explore](../interactive/xx.html)`) and lab code (`../lab/xx.py`) in the concept file where it teaches that concept (sections 3/4/7). Concepts with no suited figure may use an ASCII/Mermaid diagram in section 8. Add NEW figures/pages if an important concept has no visual.
+* Tier `README.md` becomes the TIER OVERVIEW only: goal, prerequisites/leads-to, big picture, how-to-use table, visual gallery (all figures/GIFs embedded), interactive explorer table, concept index table (every concept -> link to its file), the Build/lab description + results, tier-level interview kit, tier summary, review-status table. NO per-concept teaching there.
+* Write the concept files in several batches; keep each coherent. Reuse (and fix/extend) content from any existing tier README/lab; keep facts consistent with the lab code. Mark uncertain facts REVIEW_REQUIRED. Code snippets in concept files must be correct (run non-trivial ones; keep them consistent with lab/).
+* Finally run `python tools/check_concepts.py <tier-folder>` (validates filenames vs roadmap, headings, and relative links/images) and fix every error before reporting.
