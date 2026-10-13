@@ -1,0 +1,42 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Latency, A/V Sync and Cost Calculator - Tier 14</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:70px;text-align:right;font-variant-numeric:tabular-nums}select,input[type=text],textarea{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:5px;font:14px monospace;max-width:100%}input[type=text]{width:100%}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:left}.tok{display:inline-block;padding:2px 6px;margin:2px;border-radius:5px;color:#fff;font:13px monospace}.hot{color:var(--hot);font-weight:bold}.ok{color:var(--ok);font-weight:bold}button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}</style></head><body>
+
+<h1>Streaming latency, audio-video sync and cost calculator</h1>
+<p class="sub">Three small models in one page: (1) chunked streaming-ASR latency, (2) the end-to-end budget of a cascaded voice agent, (3) audio/video offset and ASR cost. All numbers are parameters you set; none are measurements of a real service.</p>
+<div class="card"><h2>1. Streaming recogniser latency</h2>
+<label><span class="n">chunk (ms)</span><input id="ch" type="range" min="40" max="5000" step="20" value="320"><b class="v" id="chv"></b></label>
+<label><span class="n">lookahead (ms)</span><input id="la" type="range" min="0" max="2000" step="20" value="160"><b class="v" id="lav"></b></label>
+<label><span class="n">compute per chunk (ms)</span><input id="cp" type="range" min="1" max="2000" step="1" value="60"><b class="v" id="cpv"></b></label>
+<div id="r1"></div></div>
+<div class="card"><h2>2. Cascaded voice-agent budget (end of speech to first audio)</h2>
+<label><span class="n">endpoint wait (ms)</span><input id="s1" type="range" min="100" max="1500" step="10" value="400"><b class="v" id="s1v"></b></label>
+<label><span class="n">ASR finalisation (ms)</span><input id="s2" type="range" min="20" max="1000" step="10" value="200"><b class="v" id="s2v"></b></label>
+<label><span class="n">LLM first token (ms)</span><input id="s3" type="range" min="50" max="3000" step="10" value="500"><b class="v" id="s3v"></b></label>
+<label><span class="n">TTS first audio (ms)</span><input id="s4" type="range" min="30" max="1500" step="10" value="250"><b class="v" id="s4v"></b></label>
+<label><span class="n">network round trips (ms)</span><input id="s5" type="range" min="10" max="800" step="10" value="150"><b class="v" id="s5v"></b></label>
+<canvas id="c2" width="900" height="90"></canvas><div id="r2"></div></div>
+<div class="card"><h2>3. A/V offset and ASR cost</h2>
+<label><span class="n">audio lead (+) / lag (-) vs video (ms)</span><input id="off" type="range" min="-300" max="300" step="5" value="0"><b class="v" id="offv"></b></label>
+<canvas id="c3" width="900" height="110"></canvas><div id="r3"></div>
+<label><span class="n">audio per month (hours)</span><input id="hrs" type="range" min="1" max="100000" step="100" value="5000"><b class="v" id="hrsv"></b></label>
+<label><span class="n">API price (USD / audio minute)</span><input id="ppm" type="range" min="0.001" max="0.05" step="0.001" value="0.006"><b class="v" id="ppmv"></b></label>
+<label><span class="n">self-host RTF (compute/audio)</span><input id="rtf" type="range" min="0.01" max="1" step="0.01" value="0.1"><b class="v" id="rtfv"></b></label>
+<label><span class="n">GPU price (USD / hour)</span><input id="gpu" type="range" min="0.2" max="10" step="0.1" value="1.5"><b class="v" id="gpuv"></b></label>
+<div id="r4"></div><p class="note">Self-host cost = hours x RTF x GPU price / utilisation (here 50% assumed). ITU-R BT.1359 style tolerances put audio-ahead detectability near +45 ms and audio-behind near -125 ms (REVIEW_REQUIRED: quoted from memory; verify before citing).</p></div>
+<script>
+const $=i=>document.getElementById(i);const ids=["ch","la","cp","s1","s2","s3","s4","s5","off","hrs","ppm","rtf","gpu"];
+function run(){ids.forEach(i=>$(i+"v").textContent=$(i).value);
+ const ch=+$("ch").value,la=+$("la").value,cp=+$("cp").value,worst=ch+la+cp,rtf=cp/ch;
+ $("r1").innerHTML="<table><tr><th>worst-case latency (first word of a chunk)</th><td>"+worst+" ms</td></tr><tr><th>average added delay</th><td>"+(ch/2+la+cp)+" ms</td></tr><tr><th>real-time factor</th><td class='"+(rtf<1?"ok":"hot")+"'>"+rtf.toFixed(2)+(rtf<1?" (keeps up)":" (falls behind!)")+"</td></tr></table><p class='note'>Smaller chunks lower latency but give the model less context (worse accuracy) and more per-chunk overhead.</p>";
+ const st=[["endpoint",+$("s1").value,"#4C78A8"],["ASR",+$("s2").value,"#F58518"],["LLM",+$("s3").value,"#54A24B"],["TTS",+$("s4").value,"#E45756"],["network",+$("s5").value,"#72B7B2"]];
+ const tot=st.reduce((a,b)=>a+b[1],0),c=$("c2"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);let x=10;const sc=(c.width-20)/Math.max(tot,1500);
+ st.forEach(([n,v,col])=>{g.fillStyle=col;g.fillRect(x,20,v*sc,34);g.fillStyle="#fff";g.font="11px sans-serif";if(v*sc>46)g.fillText(n,x+4,41);x+=v*sc});
+ g.fillStyle="#889";g.font="12px sans-serif";g.fillText("0",10,76);g.fillText("1500 ms",10+1500*sc-40,76);g.strokeStyle="#E45756";g.setLineDash([4,4]);g.beginPath();g.moveTo(10+800*sc,12);g.lineTo(10+800*sc,60);g.stroke();g.setLineDash([]);
+ $("r2").innerHTML="<p><b>total "+tot+" ms</b> "+(tot<=800?"<span class='ok'>(under the ~800 ms conversational target line; the target is a rule of thumb, REVIEW_REQUIRED)</span>":"<span class='hot'>(over the ~800 ms rule-of-thumb line)</span>")+"</p>";
+ const off=+$("off").value,c3=$("c3"),g3=c3.getContext("2d");g3.clearRect(0,0,c3.width,c3.height);
+ for(let r=0;r<2;r++){const y=14+r*50;g3.fillStyle=r?"#F58518":"#4C78A8";[100,300,520,760].forEach(t=>{const tt=t+(r?0:-off);g3.fillRect(10+tt,y,60,30)});g3.fillStyle="#889";g3.font="12px sans-serif";g3.fillText(r?"video mouth open":"audio syllable onset",10,y-3)}
+ const bad=off>45||off<-125;$("r3").innerHTML="<p>offset = <b>"+off+" ms</b> ("+(off>0?"audio early":off<0?"audio late":"in sync")+") = "+(Math.abs(off)/33.3).toFixed(1)+" frames at 30 fps. <span class='"+(bad?"hot":"ok")+"'>"+(bad?"likely noticeable":"probably unnoticed")+"</span></p>";
+ const h=+$("hrs").value,ppm=+$("ppm").value,rt=+$("rtf").value,gp=+$("gpu").value,api=h*60*ppm,self=h*rt*gp/0.5;
+ $("r4").innerHTML="<table><tr><th>API cost / month</th><td>$"+api.toFixed(0)+"</td></tr><tr><th>self-hosted GPU cost / month (50% utilisation)</th><td>$"+self.toFixed(0)+"</td></tr><tr><th>cheaper</th><td class='ok'>"+(api<self?"API":"self-host")+"</td></tr><tr><th>GPU-hours needed</th><td>"+(h*rt/0.5).toFixed(0)+"</td></tr></table>"}
+ids.forEach(i=>$(i).addEventListener("input",run));run();
+</script>
+</body></html>

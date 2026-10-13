@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Long-Context RoPE Scaling - Tier 12</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}.stat{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.stat div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.stat b{font-variant-numeric:tabular-nums}.cell{display:inline-block;width:26px;height:26px;margin:1px;border-radius:5px;color:#fff;font:12px/26px monospace;text-align:center;cursor:pointer;user-select:none}.bar{height:14px;border-radius:4px;background:var(--ac)}</style></head><body>
+<h1>Long-context RoPE scaling explorer</h1><p class="sub">Each RoPE frequency pair i rotates by θ<sub>i</sub> = base<sup>−2i/d</sup> radians per token. To run at a longer context than training, rescale those frequencies. Compare recipes (concept 12.8; RoPE basics are in Tier 6).</p>
+<div class="card">
+<label><span class="n">scheme</span><select id="k"><option value="pi">Position interpolation (positions ÷ s)</option><option value="base">Larger base (base × s)</option><option value="ntk" selected>NTK-aware (base × s^(d/(d−2)))</option><option value="yarn">By-parts / YaRN-style (ramp)</option><option value="none">None (extrapolate)</option></select></label>
+<label><span class="n">head dim d</span><input id="d" type="range" min="32" max="256" step="2" value="128"><b class="v" id="dv"></b></label>
+<label><span class="n">base θ</span><input id="b" type="range" min="1000" max="1000000" step="1000" value="10000"><b class="v" id="bv"></b></label>
+<label><span class="n">trained context L</span><input id="L" type="range" min="9" max="16" step="1" value="12"><b class="v" id="Lv"></b></label>
+<label><span class="n">scale factor s</span><input id="s" type="range" min="1" max="32" step="0.5" value="8"><b class="v" id="sv"></b></label></div>
+<div class="card"><canvas id="c" width="900" height="420"></canvas><div class="stat" id="st"></div><p class="note" id="nt"></p></div>
+<script>
+const $=i=>document.getElementById(i);
+function theta(d,base,k,s,L){const o=[];const D=d/2;
+ let bb=base;if(k==="base")bb=base*s;if(k==="ntk")bb=base*Math.pow(s,d/(d-2));
+ for(let i=0;i<D;i++){let t=Math.pow(bb,-2*i/d);
+  if(k==="pi")t/=s;
+  if(k==="yarn"){const t0=Math.pow(base,-2*i/d),turns=L/(2*Math.PI/t0),al=1,be=32;
+   const r=Math.min(1,Math.max(0,(turns-al)/(be-al)));t=t0*(1-r)/s+t0*r}
+  o.push(t)}return o}
+function run(){const d=+$("d").value,base=+$("b").value,L=Math.pow(2,+$("L").value),s=+$("s").value,k=$("k").value;
+ $("dv").textContent=d;$("bv").textContent=base;$("Lv").textContent=L;$("sv").textContent=s;
+ const t0=theta(d,base,"none",1,L),t1=theta(d,base,k,s,L),D=d/2,c=$("c"),x=c.getContext("2d");x.clearRect(0,0,c.width,c.height);
+ const W=c.width,H=c.height,m={l:70,r:20,t:20,b:40},lo=0,hi=8;
+ const Y=v=>H-m.b-(Math.log10(v)-lo)/(hi-lo)*(H-m.t-m.b),X=i=>m.l+i/(D-1)*(W-m.l-m.r);
+ x.strokeStyle="#99a";x.fillStyle="#889";x.font="12px sans-serif";x.lineWidth=1;
+ for(let e=0;e<=8;e++){x.beginPath();x.moveTo(m.l,Y(10**e));x.lineTo(W-m.r,Y(10**e));x.globalAlpha=.25;x.stroke();x.globalAlpha=1;x.fillText("1e"+e,28,Y(10**e)+4)}
+ x.save();x.translate(12,H/2+60);x.rotate(-Math.PI/2);x.fillText("wavelength 2π/θᵢ (tokens, log)",0,0);x.restore();x.fillText("frequency pair i (0 = fastest) →",W/2-90,H-8);
+ const line=(arr,col,w,dash)=>{x.beginPath();x.setLineDash(dash||[]);x.strokeStyle=col;x.lineWidth=w;arr.forEach((t,i)=>{const yy=Y(2*Math.PI/t);i?x.lineTo(X(i),yy):x.moveTo(X(i),yy)});x.stroke();x.setLineDash([])};
+ line(t0,"#889",2,[5,4]);line(t1,"#4C78A8",3);
+ [[L,"trained L"],[L*s,"target L·s"]].forEach(([v,lab],q)=>{x.strokeStyle="#E45756";x.setLineDash([3,4]);x.beginPath();x.moveTo(m.l,Y(v));x.lineTo(W-m.r,Y(v));x.stroke();x.setLineDash([]);x.fillStyle="#E45756";x.fillText(lab+" = "+v,m.l+6,Y(v)-4)});
+ x.fillStyle="#889";x.fillText("- - original",W-200,30);x.fillStyle="#4C78A8";x.fillText("— chosen scheme",W-200,48);
+ const never0=t0.filter(t=>2*Math.PI/t>L).length,never1=t1.filter(t=>2*Math.PI/t>L).length;
+ $("st").innerHTML=`<div>fastest pair step: <b>${t1[0].toFixed(3)}</b> rad/token (orig ${t0[0].toFixed(3)})</div><div>pairs with wavelength &gt; L (never completed a turn in training): orig <b>${never0}</b>, now <b>${never1}</b>/${D}</div><div>slowest wavelength: <b>${(2*Math.PI/t1[D-1]).toExponential(2)}</b></div>`;
+ $("nt").textContent={pi:"Position interpolation squeezes ALL positions by 1/s: nothing is extrapolated, but neighbouring tokens become s× closer in angle for fast pairs, which is why it usually needs a short fine-tune.",base:"Larger base slows every pair except i=0; simple and common for continued pre-training at longer length (exact recipes are model-specific, REVIEW_REQUIRED).",ntk:"NTK-aware: choose base' so the slowest pair is stretched by ~s while the fastest pair is almost untouched, preserving local resolution without fine-tuning (approximate, 'NTK' is a heuristic name).",yarn:"By-parts: pairs with many turns inside L stay unchanged, pairs with <1 turn are interpolated by 1/s, in between ramps linearly. Real YaRN also rescales attention logits (temperature); omitted here.",none:"No change: slow pairs reach angles never seen in training once positions exceed L. Quality typically collapses beyond the trained length."}[k]}
+["k","d","b","L","s"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>

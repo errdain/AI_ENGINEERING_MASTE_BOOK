@@ -1,0 +1,87 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Transformer Block Data Flow — Tier 8</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--ac3:#54A24B;--hot:#E45756;--grid:#d8dde6}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:1000px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:150px}
+input[type=range]{flex:1;min-width:130px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+select,input[type=number],button{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}
+button{cursor:pointer}button:hover{border-color:var(--ac)}
+canvas,svg.fig{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}
+.note{color:var(--mut);font-size:13px}.warn{color:var(--hot);font-size:13px}
+table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:right}th:first-child,td:first-child{text-align:left}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:720px){.row{grid-template-columns:1fr}}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;background:var(--ac);color:#fff;font-size:12px}
+.bar{height:14px;border-radius:3px;display:inline-block;vertical-align:middle}
+</style></head><body>
+<h1>Transformer block: data flow with tensor shapes</h1><p class="sub">Follow one block step by step. Change batch, sequence length, width, heads, FFN size, Pre-LN vs Post-LN and GELU vs SwiGLU; shapes, parameters and FLOPs update live.</p>
+
+<div class="row"><div class="card">
+<label><span class="n">batch B</span><input id="B" type="range" min="1" max="64" value="8"><b class="v" id="Bv"></b></label>
+<label><span class="n">sequence T</span><input id="T" type="range" min="1" max="8192" value="1024"><b class="v" id="Tv"></b></label>
+<label><span class="n">d_model</span><input id="d" type="range" min="64" max="8192" step="64" value="768"><b class="v" id="dv"></b></label>
+<label><span class="n">heads h</span><input id="h" type="range" min="1" max="64" value="12"><b class="v" id="hv"></b></label>
+</div><div class="card">
+<label><span class="n">d_ff multiplier</span><input id="m" type="range" min="1" max="8" step="0.5" value="4"><b class="v" id="mv"></b></label>
+<label><span class="n">norm placement</span><select id="pl"><option value="pre">Pre-LN: x + F(Norm(x))</option><option value="post">Post-LN: Norm(x + F(x))</option></select></label>
+<label><span class="n">activation</span><select id="act"><option value="gelu">GELU (2 matrices)</option><option value="swiglu">SwiGLU (3 matrices)</option></select></label>
+<p id="warn" class="note"></p></div></div>
+<div class="card"><svg id="svg" class="fig" viewBox="0 0 960 820" role="img" aria-label="Transformer block data flow"></svg></div>
+<p class="note">Left column = the residual stream (dashed arrows are the skip connections). Right columns = tensor shape after each step, parameters of that step, and forward FLOPs (2 per multiply-add). FLOPs ignore softmax/norm/activation cost, which is small. Activation memory shown for one block in fp16 (2 bytes) for the tensors listed only.</p>
+
+<script>
+const $=i=>document.getElementById(i);const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const svgNS="http://www.w3.org/2000/svg";
+function el(n,a,t){const e=document.createElementNS(svgNS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!==undefined)e.textContent=t;return e}
+function fmt(n){return n>=1e12?(n/1e12).toFixed(2)+" T":n>=1e9?(n/1e9).toFixed(2)+" G":n>=1e6?(n/1e6).toFixed(2)+" M":n>=1e3?(n/1e3).toFixed(1)+" K":Math.round(n)+""}
+function run(){const B=+$("B").value,T=+$("T").value,d=+$("d").value,h=+$("h").value,m=+$("m").value,pl=$("pl").value,act=$("act").value;
+ ["B","T","d","h","m"].forEach(k=>$(k+"v").textContent=$(k).value);
+ const bad=d%h!==0;$("warn").innerHTML=bad?"<span class='warn'>d_model must be divisible by h — using d_head = "+(d/h).toFixed(2)+" for display only.</span>":"d_head = d/h = "+(d/h)+"; d_ff = "+Math.round(m*d)+".";
+ const dk=d/h,ff=Math.round(m*d),sw=act=="swiglu";
+ const S=(...a)=>"("+a.join(", ")+")";
+ const norm=(lab)=>({k:"norm",t:lab,sh:S("B","T","d"),p:2*d,f:0,mem:B*T*d*2});
+ const attn=[
+  {k:"mm",t:"W_qkv  (one fused matmul)",sh:S("B","T","3d")+" = "+S(B,T,3*d),p:3*d*d+3*d,f:2*B*T*d*3*d,mem:B*T*3*d*2},
+  {k:"re",t:"split into h heads, reshape",sh:S("B","h","T","d_k")+" = "+S(B,h,T,+dk.toFixed(2)),p:0,f:0,mem:0},
+  {k:"at",t:"scores = QKᵀ/√d_k, causal mask, softmax",sh:S("B","h","T","T")+" = "+S(B,h,T,T),p:0,f:2*B*h*T*T*dk,mem:B*h*T*T*2},
+  {k:"at",t:"weights · V",sh:S("B","h","T","d_k"),p:0,f:2*B*h*T*T*dk,mem:B*T*d*2},
+  {k:"re",t:"concat heads",sh:S("B","T","d")+" = "+S(B,T,d),p:0,f:0,mem:B*T*d*2},
+  {k:"mm",t:"W_O  (output projection)",sh:S("B","T","d"),p:d*d+d,f:2*B*T*d*d,mem:B*T*d*2}];
+ const mlp=sw?[
+  {k:"mm",t:"W_gate and W_up  (two matmuls)",sh:S("B","T","d_ff")+" = "+S(B,T,ff),p:2*(d*ff+ff),f:2*2*B*T*d*ff,mem:2*B*T*ff*2},
+  {k:"ac",t:"SiLU(gate) ⊙ up   (SwiGLU)",sh:S("B","T","d_ff"),p:0,f:0,mem:B*T*ff*2},
+  {k:"mm",t:"W_down",sh:S("B","T","d")+" = "+S(B,T,d),p:ff*d+d,f:2*B*T*ff*d,mem:B*T*d*2}]:[
+  {k:"mm",t:"W_up  (expand)",sh:S("B","T","d_ff")+" = "+S(B,T,ff),p:d*ff+ff,f:2*B*T*d*ff,mem:B*T*ff*2},
+  {k:"ac",t:"GELU",sh:S("B","T","d_ff"),p:0,f:0,mem:B*T*ff*2},
+  {k:"mm",t:"W_down  (project back)",sh:S("B","T","d")+" = "+S(B,T,d),p:ff*d+d,f:2*B*T*ff*d,mem:B*T*d*2}];
+ const steps=[{k:"in",t:"x  (residual stream in)",sh:S("B","T","d")+" = "+S(B,T,d),p:0,f:0,mem:B*T*d*2}];
+ const add=(lab)=>({k:"add",t:lab,sh:S("B","T","d"),p:0,f:0,mem:B*T*d*2});
+ if(pl=="pre"){steps.push(norm("LayerNorm / RMSNorm"),...attn,add("+  x  (residual add)"),norm("LayerNorm / RMSNorm"),...mlp,add("+  x  (residual add)"))}
+ else{steps.push(...attn,add("+  x  (residual add)"),norm("LayerNorm (post)"),...mlp,add("+  x  (residual add)"),norm("LayerNorm (post)"))}
+ steps.push({k:"out",t:"x'  (residual stream out → next block)",sh:S("B","T","d")+" = "+S(B,T,d),p:0,f:0,mem:0});
+ const svg=$("svg");svg.innerHTML="";const col={in:"--ac",out:"--ac",norm:"--ac3",mm:"--ac2",re:"--mut",at:"--hot",ac:"--ac",add:"--ac3"};
+ const H=Math.min(52,780/steps.length),y0=34;let P=0,F=0,M=0;
+ svg.appendChild(el("text",{x:20,y:20,fill:cv("--mut"),"font-size":12},"step"));svg.appendChild(el("text",{x:420,y:20,fill:cv("--mut"),"font-size":12},"tensor shape"));
+ svg.appendChild(el("text",{x:700,y:20,fill:cv("--mut"),"font-size":12,"text-anchor":"end"},"params"));svg.appendChild(el("text",{x:790,y:20,fill:cv("--mut"),"font-size":12,"text-anchor":"end"},"FLOPs"));svg.appendChild(el("text",{x:880,y:20,fill:cv("--mut"),"font-size":12,"text-anchor":"end"},"act. mem"));
+ let addY=[],firstY=y0+H/2;
+ steps.forEach((s,i)=>{const y=y0+i*H;P+=s.p;F+=s.f;M+=s.mem;const c=cv(col[s.k]);
+  svg.appendChild(el("rect",{x:50,y:y+3,width:340,height:H-8,rx:8,fill:c,opacity:s.k=="re"?0.45:0.9}));
+  svg.appendChild(el("text",{x:62,y:y+H/2+2,fill:"#fff","font-size":12.5,"font-weight":s.k=="add"?"700":"400"},s.t));
+  const sh=s.sh.length>40?s.sh.replace(/ = .*/,""):s.sh;
+  svg.appendChild(el("text",{x:400,y:y+H/2+2,fill:cv("--fg"),"font-size":11.5,"font-family":"monospace"},sh));
+  svg.appendChild(el("text",{x:700,y:y+H/2+2,fill:cv("--fg"),"font-size":12,"text-anchor":"end"},s.p?fmt(s.p):"–"));
+  svg.appendChild(el("text",{x:790,y:y+H/2+2,fill:cv("--fg"),"font-size":12,"text-anchor":"end"},s.f?fmt(s.f):"–"));
+  svg.appendChild(el("text",{x:880,y:y+H/2+2,fill:cv("--fg"),"font-size":12,"text-anchor":"end"},s.mem?fmt(s.mem)+"B":"–"));
+  if(s.k=="add")addY.push(y+H/2);
+  if(i<steps.length-1)svg.appendChild(el("path",{d:`M220 ${y+H-5} v4`,stroke:cv("--mut"),"stroke-width":2}))});
+ // skip connections: from the stream start/previous add to each add
+ const starts=[y0+H/2].concat(addY);
+ addY.forEach((ay,i)=>{const sy=starts[i]+ (i==0?0:0);const xx=28-i*0;
+  svg.appendChild(el("path",{d:`M50 ${sy+ (i==0?8:6)} H${22+ (i%2)*10} V${ay} H50`,fill:"none",stroke:cv("--ac3"),"stroke-width":2.5,"stroke-dasharray":"6 4"}))});
+ svg.appendChild(el("text",{x:20,y:y0+steps.length*H+22,fill:cv("--fg"),"font-size":13,"font-weight":700},"Block total:  params "+fmt(P)+"   |   FLOPs "+fmt(F)+"   |   listed activations ≈ "+fmt(M)+"B (fp16)   |   12d²+13d = "+fmt(12*d*d+13*d)+" (when d_ff=4d, GELU, biases)"));
+ svg.setAttribute("viewBox",`0 0 960 ${y0+steps.length*H+40}`)}
+["B","T","d","h","m","pl","act"].forEach(i=>$(i).addEventListener("input",run));run();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",run);
+
+</script></body></html>

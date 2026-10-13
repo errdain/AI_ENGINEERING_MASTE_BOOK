@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ViT Patch Explorer - Tier 13</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:150px}input[type=range]{flex:1;min-width:140px}b.v{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}canvas{background:var(--bg);border-radius:8px;border:1px solid var(--grid);max-width:100%}.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}.row>div{flex:1;min-width:240px}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:left}code{font-family:monospace}.k input{width:54px;text-align:center}</style></head><body>
+<h1>ViT patchification explorer</h1><p class="sub">Choose image size and patch size; see token count, sequence length and the quadratic attention cost. Tier 13.15-13.17.</p>
+<div class="card"><label><span class="n">image size H=W</span><input id="H" type="range" min="32" max="384" step="32" value="224"><b class="v" id="Hv"></b></label>
+<label><span class="n">patch size p</span><input id="p" type="range" min="4" max="64" step="4" value="16"><b class="v" id="pv"></b></label>
+<label><span class="n">embed dim d</span><input id="d" type="range" min="64" max="1280" step="64" value="768"><b class="v" id="dv"></b></label>
+<label><span class="n">add [CLS] token</span><input id="cls" type="checkbox" checked></label><table id="tb"></table><p id="warn" class="note"></p></div>
+<div class="card"><canvas id="c" width="560" height="360"></canvas><p class="note">Left: image cut into patches (click a patch to highlight it). Right: self-attention matrix size N&times;N (side proportional to T, so area is proportional to cost; reference: 197 tokens = ViT-B/16 at 224). Synthetic image: coloured shapes.</p></div>
+<script>
+const $=i=>document.getElementById(i);
+function cs(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let sel=-1;
+function run(){const H=+$("H").value,p=+$("p").value,d=+$("d").value,cl=$("cls").checked;$("Hv").textContent=H;$("pv").textContent=p;$("dv").textContent=d;
+ const ok=H%p==0,g=Math.floor(H/p),N=g*g,T=N+(cl?1:0);
+ $("warn").textContent=ok?"":"Warning: H is not divisible by p - real pipelines resize or pad; here we use floor(H/p)="+g+" patches per side.";
+ const pv=p*p*3,pp=pv*d+d,att=T*T;
+ $("tb").innerHTML="<tr><th>patches per side</th><td>"+g+"</td></tr><tr><th>patches N = (H/p)^2</th><td>"+N+"</td></tr><tr><th>sequence length (tokens)</th><td>"+T+"</td></tr><tr><th>raw patch vector p*p*3</th><td>"+pv+" numbers</td></tr><tr><th>patch-embedding params (p*p*3*d + d)</th><td>"+pp.toLocaleString()+"</td></tr><tr><th>attention scores per head per layer (T^2)</th><td>"+att.toLocaleString()+"</td></tr><tr><th>vs. p=16 baseline at this H</th><td>"+(att/Math.pow(Math.floor(H/16)**2+(cl?1:0),2)).toFixed(2)+"x attention cost</td></tr>";
+ const c=$("c"),x=c.getContext("2d");x.clearRect(0,0,c.width,c.height);const S=300;
+ const px=(u,v)=>{const a=u/H,b=v/H;let col=[235,238,245];if(((a-.35)**2+(b-.4)**2)<.04)col=[228,87,86];if(Math.abs(a-.68)<.14&&Math.abs(b-.65)<.14)col=[76,120,168];if(Math.abs(a-.7)<.03&&Math.abs(b-.2)<.12||Math.abs(b-.2)<.03&&Math.abs(a-.7)<.12)col=[84,162,75];return col};
+ const st=Math.max(1,Math.floor(H/150));for(let v=0;v<H;v+=st)for(let u=0;u<H;u+=st){const c3=px(u,v);x.fillStyle="rgb("+c3+")";x.fillRect(10+u*S/H,10+v*S/H,S/H*st+.5,S/H*st+.5)}
+ x.strokeStyle="#fff";x.lineWidth=1;x.beginPath();for(let i=0;i<=g;i++){x.moveTo(10+i*p*S/H,10);x.lineTo(10+i*p*S/H,10+g*p*S/H);x.moveTo(10,10+i*p*S/H);x.lineTo(10+g*p*S/H,10+i*p*S/H)}x.stroke();
+ if(sel>=0&&sel<N){x.strokeStyle="#EECA3B";x.lineWidth=3;x.strokeRect(10+(sel%g)*p*S/H,10+Math.floor(sel/g)*p*S/H,p*S/H,p*S/H)}
+ const side=Math.min(230,T/197*150);x.fillStyle=cs("--ac");x.globalAlpha=.8;x.fillRect(330,10,side,side);x.globalAlpha=1;x.strokeStyle=cs("--grid");x.strokeRect(330,10,230,230);
+ x.fillStyle=cs("--mut");x.font="12px sans-serif";x.fillText("attention matrix "+T+"x"+T+" (side = T/197*150 px; box = 230 px cap)",330,262);x.fillText("image "+H+"x"+H+", "+g+"x"+g+" patches",10,330)}
+$("c").onclick=e=>{const r=$("c").getBoundingClientRect(),k=560/r.width,H=+$("H").value,p=+$("p").value,g=Math.floor(H/p),u=(e.clientX-r.left)*k-10,v=(e.clientY-r.top)*k-10;if(u>=0&&v>=0&&u<300&&v<300){sel=Math.floor(v*H/300/p)*g+Math.floor(u*H/300/p);run()}};
+["H","p","d","cls"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>

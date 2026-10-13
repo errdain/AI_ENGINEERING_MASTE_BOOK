@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unicode &amp; UTF-8 Explorer — Tier 6</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px;overflow-x:auto}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}textarea{width:100%;min-height:60px;background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:6px;font:15px monospace}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:4px 10px;margin:2px;cursor:pointer}.hot{color:var(--hot)}</style></head><body>
+<h1>Unicode &amp; UTF-8 explorer</h1><p class="sub">Type any text (or click a sample). See code points, UTF-8 bytes, and how NFC / NFD / NFKC change the string. Byte-level tokenizers see the <b>bytes</b>, so different bytes = different tokens.</p>
+<div class="card"><textarea id="t">café vs café, ﬁne, ｆｕｌｌwidth, नमस्ते, 日本語 🙂</textarea>
+<div class="note">Samples: <button data-s="caf&#233;">é (NFC)</button><button data-s="cafe&#769;">e + U+0301 (NFD)</button><button data-s="&#64257;nance">ﬁ ligature</button><button data-s="&#65318;&#65333;&#65324;&#65324;">full-width</button><button data-s="नमस्ते">Hindi</button><button data-s="&#128578;">emoji</button></div>
+<label><span class="n">normalization form</span><input id="f" type="range" min="0" max="3" step="1" value="0"><b id="fv"></b></label></div>
+<div class="card"><table id="sum"></table></div>
+<div class="card"><div class="note">Per character after the chosen normalization (first 24 characters):</div><table id="rows"></table></div>
+<script>
+const $=i=>document.getElementById(i),F=["none","NFC","NFD","NFKC"];
+const hex=n=>"U+"+n.toString(16).toUpperCase().padStart(4,"0");
+const enc=new TextEncoder();
+function run(){const k=+$("f").value;$("fv").textContent=F[k];const raw=$("t").value;const s=k?raw.normalize(F[k]):raw;
+ const cps=[...s],bytes=enc.encode(s),rb=enc.encode(raw);
+ const row=(a,b)=>"<tr><th>"+a+"</th><td>"+b+"</td></tr>";
+ $("sum").innerHTML=row("characters (code points) raw → now",[...raw].length+" → "+cps.length)+row("UTF-8 bytes raw → now",rb.length+" → "+bytes.length)+row("bytes per code point",(bytes.length/Math.max(1,cps.length)).toFixed(2))+row("equal to NFC form?",s.normalize("NFC")===s?"yes":"<span class='hot'>no</span>")+row("changed by normalization?",s===raw?"no":"<span class='hot'>yes</span>");
+ $("rows").innerHTML="<tr><th>char</th><th>code point</th><th>UTF-8 bytes (hex)</th></tr>"+cps.slice(0,24).map(c=>"<tr><td>"+(c.trim()?c:"␣")+"</td><td>"+hex(c.codePointAt(0))+"</td><td>"+[...enc.encode(c)].map(b=>b.toString(16).padStart(2,"0")).join(" ")+"</td></tr>").join("")}
+["t","f"].forEach(i=>$(i).addEventListener("input",run));
+document.querySelectorAll("button[data-s]").forEach(b=>b.addEventListener("click",()=>{$("t").value=b.dataset.s;run()}));run();
+</script></body></html>

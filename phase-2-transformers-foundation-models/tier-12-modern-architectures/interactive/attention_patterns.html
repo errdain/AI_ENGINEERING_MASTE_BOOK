@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Attention Pattern Gallery - Tier 12</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}.stat{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.stat div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.stat b{font-variant-numeric:tabular-nums}.cell{display:inline-block;width:26px;height:26px;margin:1px;border-radius:5px;color:#fff;font:12px/26px monospace;text-align:center;cursor:pointer;user-select:none}.bar{height:14px;border-radius:4px;background:var(--ac)}</style></head><body>
+<h1>Attention-pattern gallery</h1><p class="sub">Which (query, key) pairs does each sparse pattern compute? Green = computed. Change the window, stride, block size and number of global tokens and watch the work and the reach change. Concepts 12.9-12.12.</p>
+<div class="card">
+<label><span class="n">pattern</span><select id="p"><option value="full">Full causal</option><option value="sw" selected>Sliding window</option><option value="dil">Dilated window</option><option value="blk">Block-sparse (local block + block summaries)</option><option value="gl">Global + local</option></select></label>
+<label><span class="n">sequence length n</span><input id="n" type="range" min="8" max="96" value="48"><b class="v" id="nv"></b></label>
+<label><span class="n">window w</span><input id="w" type="range" min="1" max="48" value="8"><b class="v" id="wv"></b></label>
+<label><span class="n">dilation stride</span><input id="s" type="range" min="1" max="16" value="3"><b class="v" id="sv"></b></label>
+<label><span class="n">block size</span><input id="b" type="range" min="2" max="32" value="8"><b class="v" id="bv"></b></label>
+<label><span class="n">global tokens g</span><input id="g" type="range" min="0" max="8" value="2"><b class="v" id="gv"></b></label>
+<label><span class="n">stacked layers L</span><input id="L" type="range" min="1" max="48" value="12"><b class="v" id="Lv"></b></label></div>
+<div class="card"><canvas id="c" width="900" height="520"></canvas><div class="stat" id="st"></div><p class="note" id="nt"></p></div>
+<script>
+const $=i=>document.getElementById(i);
+function allowed(p,i,j,n,w,s,b,g){if(j>i)return false;
+ switch(p){case"full":return true;case"sw":return i-j<w;
+ case"dil":return (i-j)%s===0&&(i-j)<s*w;
+ case"blk":return Math.floor(i/b)===Math.floor(j/b)||j%b===b-1;
+ case"gl":return i-j<w||j<g||i<g;}return false}
+function run(){const p=$("p").value,n=+$("n").value,w=+$("w").value,s=+$("s").value,b=+$("b").value,g=+$("g").value,L=+$("L").value;
+ ["n","w","s","b","g","L"].forEach(k=>$(k+"v").textContent=$(k).value);
+ const c=$("c"),x=c.getContext("2d");x.clearRect(0,0,c.width,c.height);
+ const sz=Math.floor(Math.min(c.width-20,c.height-20)/n),ox=(c.width-sz*n)/2,oy=10;let cnt=0,last=0;
+ for(let i=0;i<n;i++)for(let j=0;j<n;j++){const a=allowed(p,i,j,n,w,s,b,g);
+  if(a){cnt++;if(i===n-1)last++}
+  x.fillStyle=a?"#54A24B":(j>i?"rgba(150,150,160,.10)":"rgba(150,150,160,.25)");x.fillRect(ox+j*sz,oy+i*sz,sz-(sz>4?1:0),sz-(sz>4?1:0))}
+ x.strokeStyle="#E45756";x.lineWidth=2;x.strokeRect(ox,oy+(n-1)*sz,sz*n,sz);
+ const full=n*(n+1)/2;let reach;
+ if(p==="full")reach=n;else if(p==="sw")reach=Math.min(n,L*(w-1)+1);else if(p==="dil")reach=Math.min(n,L*s*(w-1)+1);
+ else if(p==="blk")reach=n;else reach=n;
+ $("st").innerHTML=`<div>pairs computed <b>${cnt}</b> / ${full} = <b>${(100*cnt/full).toFixed(1)}%</b></div><div>keys read by the last query <b>${last}</b></div><div>naive n²/2 vs this: <b>${(full/cnt).toFixed(1)}×</b> less work</div><div>reach after L=${L} layers ≈ <b>${reach}</b> tokens</div>`;
+ $("nt").textContent={full:"Full causal: every query reads all earlier keys; KV cache grows linearly with n.",sw:"Sliding window: a token directly sees w tokens, but information hops w-1 tokens per layer, so reach grows ≈ L·(w−1) (rows 7 and 30 in Tier 7's lab). Cache per layer is capped at w.",dil:"Dilated: skip stride-1 tokens between reads; same budget w covers w·stride tokens, but with gaps. Different heads/layers use different strides to fill them.",blk:"Block-sparse: full attention inside a block plus the last token of every block as a summary hub, so far context is reachable in two hops. Real systems learn or fix such block layouts.",gl:"Global + local: a few global tokens (e.g. CLS, sentence starts, attention sinks) attend to and are attended by everyone; the rest use a window. Cost ≈ n·(w+g)."}[p]+" Red box = the last query’s row."}
+["p","n","w","s","b","g","L"].forEach(k=>$(k).addEventListener("input",run));run();
+</script></body></html>

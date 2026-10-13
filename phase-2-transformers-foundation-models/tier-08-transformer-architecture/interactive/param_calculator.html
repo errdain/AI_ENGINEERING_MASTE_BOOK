@@ -1,0 +1,78 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Parameter Count Calculator — Tier 8</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--ac3:#54A24B;--hot:#E45756;--grid:#d8dde6}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:1000px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:150px}
+input[type=range]{flex:1;min-width:130px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+select,input[type=number],button{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}
+button{cursor:pointer}button:hover{border-color:var(--ac)}
+canvas,svg.fig{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}
+.note{color:var(--mut);font-size:13px}.warn{color:var(--hot);font-size:13px}
+table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:right}th:first-child,td:first-child{text-align:left}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:720px){.row{grid-template-columns:1fr}}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;background:var(--ac);color:#fff;font-size:12px}
+.bar{height:14px;border-radius:3px;display:inline-block;vertical-align:middle}
+</style></head><body>
+<h1>Transformer parameter-count calculator</h1><p class="sub">Pick a preset or move the sliders: layers, width, heads, vocabulary, FFN size, activation, norm, tied embeddings. Preset numbers are <b>REVIEW_REQUIRED</b> (recalled from public model cards, not re-verified); the formula itself is tested in the lab.</p>
+
+<div class="card"><h2>Presets</h2>
+<select id="pre"></select> <span id="prenote" class="note"></span></div>
+<div class="row"><div class="card">
+<label><span class="n">layers L</span><input id="L" type="range" min="1" max="128" value="12"><b class="v" id="Lv"></b></label>
+<label><span class="n">d_model</span><input id="d" type="range" min="32" max="16384" step="32" value="768"><b class="v" id="dv"></b></label>
+<label><span class="n">heads h</span><input id="h" type="range" min="1" max="128" value="12"><b class="v" id="hv"></b></label>
+<label><span class="n">vocab V</span><input id="V" type="range" min="1" max="256000" step="1" value="50257"><b class="v" id="Vv"></b></label>
+<label><span class="n">context T (learned pos)</span><input id="T" type="range" min="16" max="131072" step="16" value="1024"><b class="v" id="Tv"></b></label>
+<label><span class="n">d_ff</span><input id="ff" type="number" min="1" step="1" value="3072" style="width:100px"> <button id="ffa">auto</button></label>
+</div><div class="card">
+<label><span class="n">activation</span><select id="act"><option value="gelu">GELU (2 FFN matrices)</option><option value="swiglu">SwiGLU (3 FFN matrices)</option></select></label>
+<label><span class="n">norm</span><select id="norm"><option value="layernorm">LayerNorm (weight+bias)</option><option value="rmsnorm">RMSNorm (weight)</option></select></label>
+<label><span class="n">position</span><select id="pos"><option value="learned">learned absolute (T&times;d)</option><option value="rope">RoPE / none (0 params)</option></select></label>
+<label><span class="n">tie input/output embeddings</span><input id="tie" type="checkbox" checked></label>
+<label><span class="n">linear-layer biases</span><input id="bias" type="checkbox" checked></label>
+<p id="warn" class="warn"></p>
+<p class="note">Exactly the formula in <code>lab/mini_gpt.py::count_params_formula</code> (verified against PyTorch in the tests for the learned-position case).</p>
+</div></div>
+<div class="card"><h2>Result</h2><div id="tot" style="font-size:22px;font-weight:600"></div><table id="tb"></table></div>
+<div class="card"><h2>Where the parameters live</h2><div id="bars"></div>
+<p class="note">Rules of thumb (<b>REVIEW_REQUIRED</b>, vary with framework/precision): weights bf16/fp16 = 2 B/param; mixed-precision Adam training &asymp; 16 B/param (2 weights + 2 grads + 4 fp32 master + 8 Adam m,v) before activations; forward FLOPs &asymp; 2&middot;N per token; training &asymp; 6&middot;N per token.</p></div>
+
+<script>
+const $=i=>document.getElementById(i);const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// name: [L,d,h,V,T,ff,act,norm,pos,tie,bias, note]
+const P={
+ "Mini-GPT (this tier's lab)":[3,96,4,41,64,384,"gelu","layernorm","learned",true,true,"TESTED: equals sum(p.numel()) in pytest (V depends on corpus chars)"],
+ "GPT-2 small":[12,768,12,50257,1024,3072,"gelu","layernorm","learned",true,true,"REVIEW_REQUIRED: published as ~124M"],
+ "GPT-2 medium":[24,1024,16,50257,1024,4096,"gelu","layernorm","learned",true,true,"REVIEW_REQUIRED: published as ~355M"],
+ "GPT-2 large":[36,1280,20,50257,1024,5120,"gelu","layernorm","learned",true,true,"REVIEW_REQUIRED: published as ~774M"],
+ "GPT-2 XL":[48,1600,25,50257,1024,6400,"gelu","layernorm","learned",true,true,"REVIEW_REQUIRED: published as ~1.5B"],
+ "Llama-style 7B":[32,4096,32,32000,0,11008,"swiglu","rmsnorm","rope",false,false,"REVIEW_REQUIRED: configuration from memory of the public Llama-1/2 7B; published as ~6.7B"],
+ "GPT-3 175B-style":[96,12288,96,50257,2048,49152,"gelu","layernorm","learned",true,true,"REVIEW_REQUIRED: published as ~175B (formula ignores small details)"]
+};
+function count(c){const{L,d,V,T,ff,act,norm,pos,tie,bias}=c,b=bias?1:0,nrm=d*(norm=="layernorm"?2:1);
+ const attn=4*d*d+4*d*b, mats=act=="swiglu"?3:2, mlp=mats*d*ff+(act=="swiglu"?2*ff+d:ff+d)*b;
+ const emb=V*d, posp=pos=="learned"?T*d:0, head=tie?0:V*d;
+ return{emb,posp,attn:L*attn,mlp:L*mlp,norms:(2*L+1)*nrm,head,total:emb+posp+L*(attn+mlp)+(2*L+1)*nrm+head}}
+function autoff(){const act=$("act").value,d=+$("d").value;return act=="swiglu"?Math.round(8*d/3/256)*256:4*d}
+function fmt(n){return n>=1e9?(n/1e9).toFixed(2)+" B":n>=1e6?(n/1e6).toFixed(2)+" M":n>=1e3?(n/1e3).toFixed(1)+" K":""+n}
+function read(){return{L:+$("L").value,d:+$("d").value,h:+$("h").value,V:+$("V").value,T:+$("T").value,ff:+$("ff").value,act:$("act").value,norm:$("norm").value,pos:$("pos").value,tie:$("tie").checked,bias:$("bias").checked}}
+function run(){const c=read();["L","d","h","V","T"].forEach(k=>$(k+"v").textContent=c[k]);
+ $("warn").textContent=c.d%c.h?"d_model must be divisible by heads (d_head = "+(c.d/c.h).toFixed(2)+")":"d_head = "+(c.d/c.h);
+ $("warn").className=c.d%c.h?"warn":"note";
+ const r=count(c),t=r.total;$("tot").textContent=t.toLocaleString()+" parameters ("+fmt(t)+")";
+ const rows=[["token embedding (V·d)",r.emb,"--ac"],["position embedding",r.posp,"--ac3"],["attention (QKV+out) all layers",r.attn,"--ac2"],["FFN / MLP all layers",r.mlp,"--hot"],["norm weights",r.norms,"--mut"],["separate output head",r.head,"--ac"]];
+ $("tb").innerHTML="<tr><th>component</th><th>params</th><th>share</th></tr>"+rows.map(x=>"<tr><td>"+x[0]+"</td><td>"+x[1].toLocaleString()+"</td><td>"+(100*x[1]/t).toFixed(1)+"%</td></tr>").join("")+
+  "<tr><td>weights in bf16/fp16</td><td colspan=2>"+(2*t/1e9).toFixed(2)+" GB</td></tr><tr><td>training state ≈16 B/param</td><td colspan=2>"+(16*t/1e9).toFixed(1)+" GB</td></tr><tr><td>forward FLOPs/token ≈2N</td><td colspan=2>"+(2*t/1e9).toFixed(2)+" GFLOP</td></tr>"+
+  "<tr><td>attention + FFN share of all params</td><td colspan=2>"+(100*(r.attn+r.mlp)/t).toFixed(1)+"% of total</td></tr>";
+ $("bars").innerHTML=rows.map(x=>"<div style='display:flex;gap:8px;align-items:center;margin:3px 0'><span style='width:210px;font-size:13px'>"+x[0]+"</span><span class='bar' style='background:var("+x[2]+");width:"+(100*x[1]/t*0.6).toFixed(1)+"%;min-width:2px'></span><span class='note'>"+(100*x[1]/t).toFixed(1)+"%</span></div>").join("")}
+const sel=$("pre");Object.keys(P).forEach(k=>sel.add(new Option(k,k)));
+function apply(k){const p=P[k],ids=["L","d","h","V","T","ff","act","norm","pos"];ids.forEach((id,i)=>$(id).value=p[i]||(id=="T"?16:p[i]));if(p[4]==0)$("T").value=16;$("tie").checked=p[9];$("bias").checked=p[10];$("prenote").textContent=p[11];run()}
+sel.onchange=()=>apply(sel.value);
+["L","d","h","V","T","ff","act","norm","pos","tie","bias"].forEach(i=>$(i).addEventListener("input",run));
+$("ffa").onclick=()=>{$("ff").value=autoff();run()};
+$("act").addEventListener("change",()=>{$("ff").value=autoff();run()});
+apply("GPT-2 small");
+
+</script></body></html>

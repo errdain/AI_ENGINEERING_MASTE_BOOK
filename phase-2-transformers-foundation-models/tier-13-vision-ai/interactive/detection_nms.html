@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IoU and NMS Explorer - Tier 13</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:150px}input[type=range]{flex:1;min-width:140px}b.v{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}canvas{background:var(--bg);border-radius:8px;border:1px solid var(--grid);max-width:100%}.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}.row>div{flex:1;min-width:240px}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:left}code{font-family:monospace}.k input{width:54px;text-align:center}</style></head><body>
+<h1>Object-detection IoU &amp; NMS explorer</h1><p class="sub">Drag and resize boxes, change thresholds, and watch IoU and greedy non-maximum suppression decide which detections survive. Tier 13.26.</p>
+<div class="card"><label><span class="n">IoU threshold (NMS)</span><input id="t" type="range" min="0.05" max="0.95" step="0.05" value="0.5"><b class="v" id="tv"></b></label>
+<label><span class="n">score threshold</span><input id="st" type="range" min="0" max="0.9" step="0.05" value="0.3"><b class="v" id="stv"></b></label>
+<label><span class="n">show</span><select id="mode"><option value="all">all candidates</option><option value="nms" selected>after NMS</option></select></label>
+<button id="rs">reset boxes</button><table id="tb"></table></div>
+<div class="card"><canvas id="c" width="640" height="360"></canvas><p class="note">Drag any box to move it (drag its bottom-right corner to resize). The first two boxes are two detections of the same object; the third is a different object. Dashed = suppressed, grey = below score threshold.</p></div>
+<script>
+const $=i=>document.getElementById(i);
+function cs(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const init=()=>[{x:60,y:60,w:150,h:140,s:.9},{x:85,y:75,w:150,h:140,s:.8},{x:110,y:50,w:140,h:140,s:.55},{x:380,y:150,w:170,h:160,s:.85},{x:400,y:170,w:150,h:150,s:.45}];
+let B=init(),drag=null;
+const iou=(a,b)=>{const iw=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x)),ih=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y)),i=iw*ih;return i/(a.w*a.h+b.w*b.h-i)};
+function nms(bs,thr,sth){const idx=bs.map((_,i)=>i).filter(i=>bs[i].s>=sth).sort((a,b)=>bs[b].s-bs[a].s),keep=[];while(idx.length){const i=idx.shift();keep.push(i);for(let k=idx.length-1;k>=0;k--)if(iou(bs[i],bs[idx[k]])>thr)idx.splice(k,1)}return keep}
+const COL=["#4C78A8","#F58518","#54A24B","#E45756","#B279A2"];
+function run(){const thr=+$("t").value,sth=+$("st").value;$("tv").textContent=thr;$("stv").textContent=sth;const keep=nms(B,thr,sth),mode=$("mode").value;
+ const c=$("c"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);g.font="12px sans-serif";
+ B.forEach((b,i)=>{const k=keep.includes(i),low=b.s<sth;if(mode=="nms"&&!k)return;g.lineWidth=k?3:2;g.setLineDash(k||low?[]:[6,4]);g.strokeStyle=low?"#889":COL[i];g.strokeRect(b.x,b.y,b.w,b.h);g.fillStyle=low?"#889":COL[i];g.fillText("#"+i+" score "+b.s.toFixed(2),b.x+3,b.y-4);g.fillRect(b.x+b.w-6,b.y+b.h-6,8,8)});g.setLineDash([]);
+ let h="<tr><th>pair</th><th>IoU</th><th>vs thr</th></tr>";for(let i=0;i<B.length;i++)for(let j=i+1;j<B.length;j++){const v=iou(B[i],B[j]);if(v>0)h+="<tr><td>#"+i+" &amp; #"+j+"</td><td>"+v.toFixed(2)+"</td><td>"+(v>thr?"overlap &gt; thr: lower score suppressed":"kept apart")+"</td></tr>"}
+ $("tb").innerHTML=h+"<tr><th>kept after NMS</th><td colspan=2>"+keep.map(i=>"#"+i).join(", ")+"</td></tr>"}
+const pos=e=>{const r=$("c").getBoundingClientRect(),k=640/r.width;return[(e.clientX-r.left)*k,(e.clientY-r.top)*k]};
+$("c").onpointerdown=e=>{const[x,y]=pos(e);for(let i=B.length-1;i>=0;i--){const b=B[i];if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){drag={i,dx:x-b.x,dy:y-b.y,rs:x>b.x+b.w-14&&y>b.y+b.h-14};$("c").setPointerCapture(e.pointerId);break}}};
+$("c").onpointermove=e=>{if(!drag)return;const[x,y]=pos(e),b=B[drag.i];if(drag.rs){b.w=Math.max(20,x-b.x);b.h=Math.max(20,y-b.y)}else{b.x=x-drag.dx;b.y=y-drag.dy}run()};
+$("c").onpointerup=()=>drag=null;$("rs").onclick=()=>{B=init();run()};
+["t","st","mode"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>

@@ -1,0 +1,59 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Roofline and Latency — Tier 11</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}
+b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}
+button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}
+.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:right}th:first-child,td:first-child{text-align:left}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.kpi div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.kpi b{font-size:16px}
+</style></head><body>
+<h1>Memory-bound decode vs compute-bound prefill</h1>
+<p class="sub">Roofline: attainable FLOP/s = min(peak compute, bandwidth × arithmetic intensity). Decode reads every weight once per step for only a few FLOPs each, so it sits left of the ridge point (memory-bound); a long prefill reuses each weight across many tokens (compute-bound). Hardware presets are <b>illustrative round numbers (REVIEW_REQUIRED)</b>.</p>
+<div class="card">
+<label><span class="n">hardware preset</span><select id="hw"><option value="">custom</option><option value="300,2">accelerator A: 300 TFLOPS, 2 TB/s</option><option value="1000,3.3">accelerator B: 1000 TFLOPS, 3.3 TB/s</option><option value="80,1">accelerator C: 80 TFLOPS, 1 TB/s</option><option value="2,0.1">laptop CPU: 2 TFLOPS, 0.1 TB/s</option></select></label>
+<label><span class="n">peak compute (TFLOPS)</span><input id="pk" type="range" min="1" max="2000" value="300"><b class="v" id="pkv"></b></label>
+<label><span class="n">memory bandwidth (TB/s)</span><input id="bw" type="range" min="0.05" max="8" step="0.05" value="2"><b class="v" id="bwv"></b></label>
+<label><span class="n">model params (B)</span><input id="pm" type="range" min="1" max="200" value="8"><b class="v" id="pmv"></b></label>
+<label><span class="n">weight bytes/param</span><select id="by"><option value="2">fp16 (2)</option><option value="1">int8 (1)</option><option value="0.5">int4 (0.5)</option></select></label>
+<label><span class="n">batch (concurrent decodes)</span><input id="bt" type="range" min="1" max="512" value="1"><b class="v" id="btv"></b></label>
+<label><span class="n">prompt tokens</span><input id="pt" type="range" min="1" max="16384" value="1024"><b class="v" id="ptv"></b></label>
+<label><span class="n">output tokens</span><input id="ot" type="range" min="1" max="2048" value="256"><b class="v" id="otv"></b></label>
+</div>
+<div class="card"><canvas id="c"></canvas><p class="note">Log-log. Orange dot = one decode step at your batch; blue dot = prefill; dashed = ridge point (peak ÷ bandwidth).</p></div>
+<div class="card"><canvas id="t"></canvas><div class="kpi" id="kpi"></div></div>
+<p class="note">Teaches 11.11-11.15, 11.39-11.41, 11.43. Model: time = max(FLOPs ÷ peak, bytes ÷ bandwidth) with FLOPs = 2·params·tokens and weights read once per step; the KV cache read, attention FLOPs, kernel launch overheads, and multi-GPU communication are ignored, so real numbers are worse.</p>
+<script>
+const $=i=>document.getElementById(i);
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(c,h){const dpr=window.devicePixelRatio||1,w=c.clientWidth||900;c.width=w*dpr;c.height=h*dpr;c.style.height=h+"px";const g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);return {g,w,h}}
+function rng(seed){let s=seed>>>0||1;return()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296}}
+function bind(ids,fn){ids.forEach(i=>{const e=$(i);e.addEventListener("input",fn);e.addEventListener("change",fn)});window.addEventListener("resize",fn);matchMedia("(prefers-color-scheme:dark)").addEventListener("change",fn)}
+function fmtB(b){const u=["B","KB","MB","GB","TB"];let i=0;while(b>=1024&&i<4){b/=1024;i++}return b.toFixed(b<10?2:1)+" "+u[i]}
+
+$("hw").onchange=()=>{const v=$("hw").value;if(!v)return;const [a,b]=v.split(",");$("pk").value=a;$("bw").value=b;run()};
+function ms(x){return x<1?(x*1000).toFixed(0)+" µs":x<1000?x.toFixed(1)+" ms":(x/1000).toFixed(2)+" s"}
+function run(){["pk","bw","pm","bt","pt","ot"].forEach(i=>$(i+"v").textContent=$(i).value);
+ const P=+$("pk").value*1e12,BW=+$("bw").value*1e12,N=+$("pm").value*1e9,by=+$("by").value,B=+$("bt").value,PT=+$("pt").value,OT=+$("ot").value;
+ const bytes=N*by,ridge=P/BW;
+ const aiD=2*N*B/bytes,aiP=2*N*PT/bytes;
+ const tD=Math.max(2*N*B/P,bytes/BW)*1e3,tP=Math.max(2*N*PT/P,bytes/BW)*1e3;
+ const boundD=2*N*B/P>bytes/BW?"compute-bound":"memory-bound",boundP=2*N*PT/P>bytes/BW?"compute-bound":"memory-bound";
+ const {g,w,h}=setup($("c"),300),L=60,R=w-10,T=14,Bm=h-34,lx0=-1,lx1=4.9,ly0=9,ly1=15.5;
+ const X=v=>L+(Math.log10(v)-lx0)/(lx1-lx0)*(R-L),Y=v=>Bm-(Math.log10(v)-ly0)/(ly1-ly0)*(Bm-T);
+ g.font="11px sans-serif";g.strokeStyle=col("--grid");for(let e=lx0;e<=4;e++){g.beginPath();g.moveTo(X(10**e),T);g.lineTo(X(10**e),Bm);g.stroke();g.fillStyle=col("--mut");g.fillText("10^"+e,X(10**e)-10,Bm+14)}
+ for(let e=ly0+1;e<=15;e+=1){g.beginPath();g.moveTo(L,Y(10**e));g.lineTo(R,Y(10**e));g.stroke();g.fillStyle=col("--mut");g.fillText("10^"+e,6,Y(10**e)+4)}
+ g.fillStyle=col("--fg");g.fillText("arithmetic intensity (FLOP per byte)",R-210,h-4);g.fillText("FLOP/s",4,12);
+ g.strokeStyle=col("--fg");g.lineWidth=2.5;g.beginPath();let first=true;for(let lx=lx0;lx<=lx1+.01;lx+=.05){const a=10**lx,v=Math.min(P,BW*a);if(Y(v)<T||Y(v)>Bm){continue}if(first){g.moveTo(X(a),Y(v));first=false}else g.lineTo(X(a),Y(v))}g.stroke();
+ g.setLineDash([5,4]);g.lineWidth=1;g.strokeStyle=col("--hot");g.beginPath();g.moveTo(X(ridge),T);g.lineTo(X(ridge),Bm);g.stroke();g.setLineDash([]);g.fillStyle=col("--hot");g.fillText("ridge ≈ "+ridge.toFixed(0)+" FLOP/B",X(ridge)+4,Bm-6);
+ [[aiD,"decode b="+B,col("--ac2")],[aiP,"prefill T="+PT,col("--ac")]].forEach(([a,n,c])=>{const v=Math.min(P,BW*a);g.fillStyle=c;g.beginPath();g.arc(X(Math.max(a,.1)),Y(Math.max(v,2e9)),7,0,7);g.fill();g.fillStyle=col("--fg");g.fillText(n,X(Math.max(a,.1))+10,Y(Math.max(v,2e9))-8)});
+ // timeline
+ const T2=setup($("t"),120),tg=T2.g,tot=tP+tD*OT,sx=(T2.w-20)/tot;tg.font="12px sans-serif";
+ tg.fillStyle=col("--ac");tg.fillRect(10,30,Math.max(tP*sx,3),34);tg.fillStyle=col("--fg");tg.fillText("prefill (TTFT)",10,24);
+ const nshow=Math.min(OT,Math.floor((T2.w-20-tP*sx)/Math.max(tD*sx,1.5)));
+ for(let i=0;i<OT;i++){const x=10+tP*sx+i*tD*sx;if(x>T2.w-8)break;tg.fillStyle=col("--ac2");tg.fillRect(x,30,Math.max(tD*sx-1,1),34)}
+ tg.fillStyle=col("--fg");tg.fillText("decode: "+OT+" steps, one token each (ITL = width of one orange bar)",10,84);
+ tg.fillText("total "+ms(tot)+"   (bars scaled to total)",10,106);
+ $("kpi").innerHTML=`<div>weights read/step <b>${fmtB(bytes)}</b></div><div>prefill <b>${ms(tP)}</b> <span class="note">${boundP}</span></div><div>TTFT ≈ <b>${ms(tP)}</b></div><div>decode step / ITL <b>${ms(tD)}</b> <span class="note">${boundD}</span></div><div>per-user TPS <b>${(1000/tD).toFixed(1)}</b></div><div>server throughput <b>${(1000*B/tD).toFixed(0)}</b> tok/s</div><div>end-to-end <b>${ms(tot)}</b></div>`}
+bind(["pk","bw","pm","by","bt","pt","ot"],run);run();
+</script></body></html>

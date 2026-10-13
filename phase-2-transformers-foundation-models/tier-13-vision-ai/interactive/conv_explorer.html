@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Convolution Explorer - Tier 13</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:150px}input[type=range]{flex:1;min-width:140px}b.v{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}canvas{background:var(--bg);border-radius:8px;border:1px solid var(--grid);max-width:100%}.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}.row>div{flex:1;min-width:240px}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:left}code{font-family:monospace}.k input{width:54px;text-align:center}</style></head><body>
+<h1>Convolution &amp; receptive-field explorer</h1><p class="sub">Edit the 3x3 kernel, stride and padding; watch the output size formula and the feature map update. Tier 13.5-13.11.</p>
+<div class="row"><div class="card"><label><span class="n">input image</span><select id="img"><option>circle</option><option>square</option><option>cross</option><option>edge (half-plane)</option><option>noisy circle</option></select></label>
+<label><span class="n">kernel preset</span><select id="pre"></select></label>
+<div class="k" id="kg"></div>
+<label><span class="n">stride s</span><input id="s" type="range" min="1" max="4" value="1"><b class="v" id="sv"></b></label>
+<label><span class="n">padding p</span><input id="p" type="range" min="0" max="3" value="0"><b class="v" id="pv"></b></label>
+<label><span class="n">input size n</span><input id="n" type="range" min="8" max="24" value="16"><b class="v" id="nv"></b></label>
+<p id="formula"></p></div>
+<div class="card"><canvas id="c" width="560" height="280"></canvas><p class="note">Left: padded input (grey border = zero padding). Right: output feature map (blue negative, red positive). Edit any kernel number.</p></div></div>
+<div class="card"><b>Receptive field stack</b> (kernel 3 convs; every <i>pool every</i>-th layer is a 2x2 stride-2 pool)
+<label><span class="n">layers</span><input id="L" type="range" min="1" max="10" value="4"><b class="v" id="Lv"></b></label>
+<label><span class="n">pool every</span><input id="pe" type="range" min="0" max="4" value="2"><b class="v" id="pev"></b></label>
+<table id="rf"></table><p class="note">rf<sub>l</sub> = rf<sub>l-1</sub> + (k-1)&middot;jump<sub>l-1</sub>; jump<sub>l</sub> = jump<sub>l-1</sub>&middot;s. 0 = never pool.</p></div>
+<script>
+const $=i=>document.getElementById(i);
+function cs(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const P={"identity":[0,0,0,0,1,0,0,0,0],"box blur":Array(9).fill(1/9),"sobel-x":[-1,0,1,-2,0,2,-1,0,1],"sobel-y":[-1,-2,-1,0,0,0,1,2,1],"sharpen":[0,-1,0,-1,5,-1,0,-1,0],"custom":null};
+$("pre").innerHTML=Object.keys(P).map(k=>"<option>"+k+"</option>").join("");
+$("kg").innerHTML=[0,1,2].map(r=>[0,1,2].map(c=>'<input type="number" step="0.1" id="k'+(r*3+c)+'">').join("")+"<br>").join("");
+function setK(a){a.forEach((v,i)=>$("k"+i).value=+v.toFixed(3))}
+function getK(){return [...Array(9)].map((_,i)=>+$("k"+i).value||0)}
+function image(n){const t=$("img").value,r=mulberry(3),a=[];const cy=n/2-.5,cx=n/2-.5,R=n*.3;
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++){let v=0;
+  if(t=="circle"||t=="noisy circle")v=(y-cy)**2+(x-cx)**2<=R*R?1:0;
+  else if(t=="square")v=Math.abs(y-cy)<=R&&Math.abs(x-cx)<=R?1:0;
+  else if(t=="cross")v=(Math.abs(y-cy)<=1&&Math.abs(x-cx)<=R)||(Math.abs(x-cx)<=1&&Math.abs(y-cy)<=R)?1:0;
+  else v=x>=n/2?1:0;
+  if(t=="noisy circle")v=Math.min(1,Math.max(0,v+(r()-.5)*.4));a.push(v)}return a}
+const out=(n,k,s,p)=>Math.floor((n+2*p-k)/s)+1;
+function run(){const n=+$("n").value,s=+$("s").value,p=+$("p").value;$("nv").textContent=n;$("sv").textContent=s;$("pv").textContent=p;
+ const k=getK(),im=image(n),N=n+2*p,pad=new Array(N*N).fill(0);for(let y=0;y<n;y++)for(let x=0;x<n;x++)pad[(y+p)*N+x+p]=im[y*n+x];
+ const o=out(n,3,s,p);$("formula").innerHTML="output = floor((n + 2p &minus; k)/s) + 1 = floor(("+n+" + "+2*p+" &minus; 3)/"+s+") + 1 = <b>"+o+"</b> &rarr; "+o+"&times;"+o+" map ("+(o*o)+" values)";
+ const f=[];let mx=1e-9;for(let i=0;i<o;i++)for(let j=0;j<o;j++){let a=0;for(let u=0;u<3;u++)for(let v=0;v<3;v++)a+=pad[(i*s+u)*N+j*s+v]*k[u*3+v];f.push(a);mx=Math.max(mx,Math.abs(a))}
+ const c=$("c"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);const draw=(arr,w,ox,sz,col)=>{const q=sz/w;for(let y=0;y<w;y++)for(let x=0;x<w;x++){g.fillStyle=col(arr[y*w+x],y,x);g.fillRect(ox+x*q,10+y*q,q+.6,q+.6)}};
+ draw(pad,N,10,250,(v,y,x)=>{const b=(y<p||x<p||y>=n+p||x>=n+p);const l=Math.round(v*255);return b?"rgb(90,90,100)":"rgb("+l+","+l+","+l+")"});
+ draw(f,o,290,250,v=>{const t=v/mx;return t>=0?"rgb(255,"+Math.round(255-t*200)+","+Math.round(255-t*200)+")":"rgb("+Math.round(255+t*200)+","+Math.round(255+t*200)+",255)"});
+ g.fillStyle=cs("--mut");g.font="12px sans-serif";g.fillText("input "+N+"x"+N+" (padded)",10,274);g.fillText("output "+o+"x"+o,290,274);
+ const L=+$("L").value,pe=+$("pe").value;$("Lv").textContent=L;$("pev").textContent=pe||"never";let rf=1,j=1,h="<tr><th>layer</th><th>op</th><th>rf</th><th>jump</th></tr>";
+ for(let l=1;l<=L;l++){const pool=pe>0&&l%pe==0,kk=pool?2:3,ss=pool?2:1;rf+=(kk-1)*j;j*=ss;h+="<tr><td>"+l+"</td><td>"+(pool?"pool 2x2/2":"conv 3x3/1")+"</td><td>"+rf+"</td><td>"+j+"</td></tr>"}$("rf").innerHTML=h}
+$("pre").onchange=()=>{if(P[$("pre").value])setK(P[$("pre").value]);run()};
+for(let i=0;i<9;i++)$("k"+i).oninput=()=>{$("pre").value="custom";run()};
+["img","s","p","n","L","pe"].forEach(i=>$(i).addEventListener("input",run));setK(P["sobel-x"]);$("pre").value="sobel-x";run();
+</script></body></html>

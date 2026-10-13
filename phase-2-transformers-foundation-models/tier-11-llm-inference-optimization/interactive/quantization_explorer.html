@@ -1,0 +1,52 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quantization Explorer — Tier 11</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}
+b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}
+button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}
+.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:right}th:first-child,td:first-child{text-align:left}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.kpi div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.kpi b{font-size:16px}
+</style></head><body>
+<h1>Weight quantization: rounding error you can see</h1>
+<p class="sub">Symmetric quantization: q = round(w / s), s = max|w| / (2^(b−1)−1) per group; w' = q·s. Rounding error is at most s/2 inside the range. One outlier inflates s for its whole group and hurts everyone else, which is why group-wise scales help.</p>
+<div class="card">
+<label><span class="n">bits</span><input id="bits" type="range" min="2" max="8" value="4"><b class="v" id="bitsv"></b></label>
+<label><span class="n">group size (0 = per-tensor)</span><input id="grp" type="range" min="0" max="7" value="0"><b class="v" id="grpv"></b></label>
+<label><span class="n">outlier magnitude (× σ)</span><input id="out" type="range" min="0" max="40" value="0"><b class="v" id="outv"></b></label>
+<label><span class="n">#weights shown</span><input id="n" type="range" min="32" max="256" step="32" value="128"><b class="v" id="nv"></b></label>
+<label><span class="n">seed</span><input id="sd" type="range" min="1" max="30" value="5"><b class="v" id="sdv"></b></label></div>
+<div class="card"><canvas id="c"></canvas><div class="kpi" id="kpi"></div></div>
+<div class="card"><canvas id="h"></canvas><p class="note">Histogram of the quantization error (w' − w). A uniform error in ±s/2 is the signature of rounding.</p></div>
+<p class="note">Teaches 11.26-11.28. Weights are synthetic Gaussian (σ=1, seeded) with one optional outlier at index 3. Group sizes: tensor (one scale), then 4, 8, 16, 32, 64, 128, 256 weights per scale. Real INT4 formats (GGUF Q4 variants, GPTQ, AWQ) add details REVIEW_REQUIRED.</p>
+<script>
+const $=i=>document.getElementById(i);
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(c,h){const dpr=window.devicePixelRatio||1,w=c.clientWidth||900;c.width=w*dpr;c.height=h*dpr;c.style.height=h+"px";const g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);return {g,w,h}}
+function rng(seed){let s=seed>>>0||1;return()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296}}
+function bind(ids,fn){ids.forEach(i=>{const e=$(i);e.addEventListener("input",fn);e.addEventListener("change",fn)});window.addEventListener("resize",fn);matchMedia("(prefers-color-scheme:dark)").addEventListener("change",fn)}
+function fmtB(b){const u=["B","KB","MB","GB","TB"];let i=0;while(b>=1024&&i<4){b/=1024;i++}return b.toFixed(b<10?2:1)+" "+u[i]}
+
+const GS=[0,4,8,16,32,64,128,256];
+function gauss(r){return Math.sqrt(-2*Math.log(r()+1e-12))*Math.cos(6.2831853*r())}
+function run(){const bits=+$("bits").value,G=GS[+$("grp").value],O=+$("out").value,n=+$("n").value;
+ $("bitsv").textContent=bits;$("grpv").textContent=G||"tensor";$("outv").textContent=O;$("nv").textContent=n;$("sdv").textContent=$("sd").value;
+ const r=rng(+$("sd").value*131),w=Array.from({length:n},()=>gauss(r));if(O>0)w[3]=O;
+ const qmax=Math.pow(2,bits-1)-1,gs=G||n,q=[],dq=[],steps=[];
+ for(let a=0;a<n;a+=gs){const seg=w.slice(a,a+gs),s=Math.max(...seg.map(Math.abs))/qmax||1e-9;steps.push(s);seg.forEach(x=>{const k=Math.max(-qmax-1,Math.min(qmax,Math.round(x/s)));q.push(k);dq.push(k*s)})}
+ const err=w.map((x,i)=>dq[i]-x),rmse=Math.sqrt(err.reduce((a,e)=>a+e*e,0)/n),mx=Math.max(...err.map(Math.abs)),sm=Math.max(...steps);
+ const {g,w:W,h}=setup($("c"),300),L=40,sx=(W-L-8)/n,ymax=Math.max(3.5,Math.max(...w.map(Math.abs)))*1.05,y0=h/2,sy=(h/2-18)/ymax;
+ g.font="11px sans-serif";g.strokeStyle=col("--grid");for(let v=-Math.floor(ymax);v<=Math.floor(ymax);v++){const y=y0-v*sy;g.beginPath();g.moveTo(L,y);g.lineTo(W,y);g.stroke();g.fillStyle=col("--mut");g.fillText(v,L-18,y+4)}
+ if(G&&G<=n)for(let a=0;a<n;a+=gs){g.strokeStyle=col("--mut");g.setLineDash([3,3]);g.beginPath();g.moveTo(L+a*sx,10);g.lineTo(L+a*sx,h-10);g.stroke();g.setLineDash([])}
+ if(bits<=4&&sm*(1)<ymax){ // quant levels of first group
+  g.strokeStyle=col("--ac2");g.globalAlpha=.35;for(let k=-qmax-1;k<=qmax;k++){const y=y0-k*steps[0]*sy;if(Math.abs(y-y0)<h/2){g.beginPath();g.moveTo(L,y);g.lineTo(W,y);g.stroke()}}g.globalAlpha=1}
+ w.forEach((x,i)=>{const px=L+i*sx+sx/2;g.strokeStyle=col("--hot");g.beginPath();g.moveTo(px,y0-x*sy);g.lineTo(px,y0-dq[i]*sy);g.stroke();
+  g.fillStyle=col("--ac");g.beginPath();g.arc(px,y0-x*sy,Math.max(1.5,sx/3),0,7);g.fill();g.fillStyle=col("--ac2");g.fillRect(px-Math.max(1.5,sx/3),y0-dq[i]*sy-1,2*Math.max(1.5,sx/3),2)});
+ g.fillStyle=col("--fg");g.fillText("blue dot = original weight, orange bar = dequantized value, red = error (orange guide lines = representable levels of group 0, shown for ≤4 bits)",L,12);
+ const H=setup($("h"),150),hg=H.g,bins=21,lim=sm/2*1.1||1,cnt=new Array(bins).fill(0);err.forEach(e=>{const b=Math.floor((e/lim+1)/2*bins);if(b>=0&&b<bins)cnt[b]++});const m=Math.max(...cnt,1);
+ cnt.forEach((c,i)=>{hg.fillStyle=col("--ac");hg.fillRect(40+i*(H.w-50)/bins,130-110*c/m,(H.w-50)/bins-2,110*c/m)});
+ hg.fillStyle=col("--mut");hg.font="11px sans-serif";hg.fillText("−s/2 = "+(-lim/1.1).toFixed(3),40,146);hg.fillText("+s/2",H.w-60,146);hg.fillText("error histogram",40,12);
+ const bpw=bits+(G?16/G:0);
+ $("kpi").innerHTML=`<div>RMSE <b>${rmse.toFixed(4)}</b></div><div>max |err| <b>${mx.toFixed(4)}</b></div><div>largest step s <b>${sm.toFixed(4)}</b> (bound s/2 = ${(sm/2).toFixed(4)})</div><div>bits/weight incl. fp16 scales <b>${bpw.toFixed(2)}</b></div><div>vs fp16 <b>${(16/bpw).toFixed(1)}×</b> smaller</div>`}
+bind(["bits","grp","out","n","sd"],run);run();
+</script></body></html>

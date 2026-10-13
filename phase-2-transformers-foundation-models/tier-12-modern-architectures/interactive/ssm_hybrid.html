@@ -1,0 +1,49 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SSM, Attention Cost and Hybrid Builder - Tier 12</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}.stat{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.stat div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.stat b{font-variant-numeric:tabular-nums}.cell{display:inline-block;width:26px;height:26px;margin:1px;border-radius:5px;color:#fff;font:12px/26px monospace;text-align:center;cursor:pointer;user-select:none}.bar{height:14px;border-radius:4px;background:var(--ac)}</style></head><body>
+<h1>State-space recurrence, cost curves and a hybrid layer builder</h1><p class="sub">(1) A linear recurrence keeps a fixed-size state with a tunable memory. (2) Attention cost per token grows with context, SSM cost does not. (3) Build a layer pattern of global attention (A), sliding-window attention (L) and SSM (S) and read off the cache. Concepts 12.17-12.19.</p>
+<div class="card"><h2>1 · Recurrence: h<sub>t</sub> = a·h<sub>t−1</sub> + x<sub>t</sub></h2>
+<label><span class="n">state channels N</span><input id="N" type="range" min="1" max="8" value="4"><b class="v" id="Nv"></b></label>
+<label><span class="n">slowest decay a</span><input id="a" type="range" min="0.5" max="0.999" step="0.001" value="0.95"><b class="v" id="av"></b></label>
+<label><span class="n">input pattern</span><select id="p"><option value="imp">two impulses</option><option value="step">step</option><option value="pul">periodic pulses</option></select></label>
+<canvas id="c1" width="900" height="260"></canvas><div class="stat" id="s1"></div><p class="note">Channel j uses decay a<sup>(j+1)</sup>…: later channels forget faster. Half-life = ln 0.5 / ln a tokens. A selective SSM (Mamba) makes a, B, C depend on the input, so the model chooses what to remember.</p></div>
+<div class="card"><h2>2 · Cost per generated token vs context length</h2>
+<label><span class="n">width d</span><input id="d" type="range" min="512" max="8192" step="256" value="4096"><b class="v" id="dv"></b></label>
+<label><span class="n">SSM state size N</span><input id="n" type="range" min="4" max="256" value="16"><b class="v" id="nv"></b></label>
+<label><span class="n">window w</span><input id="w" type="range" min="256" max="32768" step="256" value="4096"><b class="v" id="wv"></b></label>
+<canvas id="c2" width="900" height="300"></canvas><div class="stat" id="s2"></div></div>
+<div class="card"><h2>3 · Hybrid layer-pattern builder (click a layer to cycle A → L → S)</h2>
+<div id="cells"></div><div style="margin:8px 0"><button data-p="A">all A</button> <button data-p="L">all L</button> <button data-p="S">all S</button> <button data-p="SSSSSSSA">1A:7S</button> <button data-p="LLLLLA">5L:1A</button> <button data-p="SSA">2S:1A</button></div>
+<label><span class="n">context n</span><input id="ctx" type="range" min="10" max="21" value="17"><b class="v" id="cxv"></b></label>
+<div class="stat" id="s3"></div><p class="note">Archetype: 32 layers, d=4096, 8 KV heads × 128, fp16, SSM inner width 2d, N=16 (no vendor model). A = full KV cache, L = cache capped at the window w from card 2, S = constant state. Quality is NOT estimated here: hybrids keep a few A layers because pure-SSM recall of exact earlier tokens is weaker (see README).</p></div>
+<script>
+const $=i=>document.getElementById(i);
+function rec(){const N=+$("N").value,a=+$("a").value,T=60,p=$("p").value;$("Nv").textContent=N;$("av").textContent=a;
+ const x=[];for(let t=0;t<T;t++)x.push(p==="imp"?(t===5?1:t===30?-1:0):p==="step"?(t>=8?.3:0):(t%12<2?1:0));
+ const c=$("c1"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);const W=c.width,H=c.height,cols=["#4C78A8","#F58518","#54A24B","#E45756","#72B7B2","#B279A2","#EECA3B","#9D755D"];
+ let mx=1;const S=[];for(let j=0;j<N;j++){const aj=Math.pow(a,j+1);let h=0;const s=[];for(let t=0;t<T;t++){h=aj*h+x[t];s.push(h);mx=Math.max(mx,Math.abs(h))}S.push(s)}
+ const X=t=>20+t/(T-1)*(W-40),Y=v=>H/2-v/mx*(H/2-20);
+ g.strokeStyle="#889";g.beginPath();g.moveTo(20,H/2);g.lineTo(W-20,H/2);g.stroke();
+ g.fillStyle="#aab";x.forEach((v,t)=>{if(v)g.fillRect(X(t)-2,Math.min(Y(v*mx*.5),H/2),4,Math.abs(Y(v*mx*.5)-H/2))});
+ S.forEach((s,j)=>{g.strokeStyle=cols[j];g.lineWidth=2;g.beginPath();s.forEach((v,t)=>t?g.lineTo(X(t),Y(v)):g.moveTo(X(t),Y(v)));g.stroke()});
+ g.fillStyle="#889";g.font="12px sans-serif";g.fillText("grey bars = input x_t, coloured lines = state channels",24,16);
+ $("s1").innerHTML=`<div>state size <b>${N}</b> numbers per input channel (constant in T)</div><div>half-life ch.0: <b>${(Math.log(.5)/Math.log(a)).toFixed(1)}</b> tokens</div><div>half-life ch.${N-1}: <b>${(Math.log(.5)/Math.log(Math.pow(a,N))).toFixed(1)}</b> tokens</div>`}
+function cost(){const d=+$("d").value,N=+$("n").value,w=+$("w").value;$("dv").textContent=d;$("nv").textContent=N;$("wv").textContent=w;
+ const c=$("c2"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);const W=c.width,H=c.height,m=50;
+ const att=n=>4*n*d,ssm=6*2*d*N,sw=n=>4*Math.min(n,w)*d;const lo=Math.log10(Math.min(ssm,att(100)))-.3,hi=Math.log10(att(1e6))+.2;
+ const X=e=>m+(e-2)/4*(W-m-20),Y=v=>H-30-(Math.log10(v)-lo)/(hi-lo)*(H-50);
+ g.strokeStyle="#99a";g.fillStyle="#889";g.font="12px sans-serif";for(let e=2;e<=6;e++){g.globalAlpha=.25;g.beginPath();g.moveTo(X(e),10);g.lineTo(X(e),H-30);g.stroke();g.globalAlpha=1;g.fillText("1e"+e,X(e)-10,H-14)}
+ g.fillText("context n →",W/2,H-2);g.fillText("FLOPs / token / layer (log)",2,12);
+ [[att,"#E45756","attention"],[()=>ssm,"#4C78A8","SSM"],[sw,"#54A24B","sliding window"]].forEach(([f,col,lab],q)=>{g.strokeStyle=col;g.lineWidth=3;g.beginPath();for(let e=2;e<=6.001;e+=.05){const v=f(Math.pow(10,e));e<2.01?g.moveTo(X(e),Y(v)):g.lineTo(X(e),Y(v))}g.stroke();g.fillStyle=col;g.fillText(lab,W-140,30+q*16)});
+ const nx=ssm/(4*d);$("s2").innerHTML=`<div>attention = SSM at n ≈ <b>${nx.toFixed(0)}</b> tokens (6·2d·N / 4d = 3N)</div><div>at n=128k attention costs <b>${(att(131072)/ssm).toFixed(0)}×</b> an SSM update</div><div>window caps cost beyond n=<b>${w}</b></div>`}
+let pat="SSSSSSSASSSSSSSASSSSSSSASSSSSSSA".split("");const colr={A:"#E45756",L:"#F58518",S:"#4C78A8"};
+function hyb(){const n=Math.pow(2,+$("ctx").value),w=+$("w").value,d=4096,hk=8,dh=128;$("cxv").textContent=n.toLocaleString();
+ $("cells").innerHTML=pat.map((p,i)=>`<span class="cell" data-i="${i}" style="background:${colr[p]}">${p}</span>`).join("");
+ document.querySelectorAll(".cell").forEach(e=>e.onclick=()=>{const i=+e.dataset.i;pat[i]=pat[i]==="A"?"L":pat[i]==="L"?"S":"A";hyb()});
+ const nA=pat.filter(v=>v==="A").length,nL=pat.filter(v=>v==="L").length,nS=pat.filter(v=>v==="S").length;
+ const per=2*hk*dh*2,kv=nA*n*per+nL*Math.min(n,w)*per,st=nS*(2*d*16+2*d*3)*2;
+ const fl=nA*4*n*d+nL*4*Math.min(n,w)*d+nS*6*2*d*16,full=32*4*n*d;
+ const G=v=>(v/2**30).toFixed(2)+" GiB";
+ $("s3").innerHTML=`<div>A/L/S = <b>${nA}/${nL}/${nS}</b></div><div>KV cache <b>${G(kv)}</b></div><div>SSM state <b>${G(st)}</b></div><div>total <b>${G(kv+st)}</b> (all-A: ${G(32*n*per)})</div><div>mixer FLOPs/token <b>${(100*fl/full).toFixed(1)}%</b> of all-A</div>`}
+document.querySelectorAll("button[data-p]").forEach(b=>b.onclick=()=>{const u=b.dataset.p;pat=Array.from({length:32},(_,i)=>u[i%u.length]);hyb()});
+["N","a","p"].forEach(i=>$(i).addEventListener("input",rec));["d","n","w"].forEach(i=>$(i).addEventListener("input",()=>{cost();hyb()}));$("ctx").addEventListener("input",hyb);
+rec();cost();hyb();
+</script></body></html>

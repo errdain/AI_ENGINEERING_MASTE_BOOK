@@ -1,0 +1,34 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CTC Collapse and WER Calculator - Tier 14</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:70px;text-align:right;font-variant-numeric:tabular-nums}select,input[type=text],textarea{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:5px;font:14px monospace;max-width:100%}input[type=text]{width:100%}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:left}.tok{display:inline-block;padding:2px 6px;margin:2px;border-radius:5px;color:#fff;font:13px monospace}.hot{color:var(--hot);font-weight:bold}.ok{color:var(--ok);font-weight:bold}button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}</style></head><body>
+
+<h1>CTC collapse and WER calculator</h1>
+<p class="sub">Part 1: type a per-frame label path (use <code>_</code> for the CTC blank). Collapse = merge repeats, then drop blanks. Part 2: type a reference and a hypothesis; the page computes the minimum edit distance with substitutions, deletions and insertions.</p>
+<div class="card"><h2>1. CTC frame path to text</h2>
+<label><span class="n">frame path</span><input type="text" id="path" value="_ _ h h _ e e _ l l _ l _ o o _ _"></label>
+<label><span class="n">number of frames</span><b class="v" id="nf"></b></label>
+<div id="steps"></div>
+<p class="note">Note how "l l _ l" gives "ll" (the blank separates two real l's) while "l l" alone gives just one l. Count how many different paths collapse to the same text: it grows exponentially with the number of frames, which is why CTC loss sums over all of them.</p></div>
+<div class="card"><h2>2. Word / character error rate</h2>
+<label><span class="n">reference</span><input type="text" id="ref" value="the quick brown fox jumps over the dog"></label>
+<label><span class="n">hypothesis</span><input type="text" id="hyp" value="the quick brown box jumps the lazy dog"></label>
+<label><span class="n">unit</span><select id="unit"><option value="w">words (WER)</option><option value="c">characters (CER)</option></select></label>
+<div id="out"></div><div id="al"></div>
+<p class="note">WER = (S + D + I) / N_ref. It can exceed 100% when the hypothesis has many insertions. Always normalise text (case, punctuation, numbers) the same way before scoring.</p></div>
+<script>
+const $=i=>document.getElementById(i);
+function collapse(tok){const out=[];let prev=null;tok.forEach(t=>{if(t!==prev&&t!=="_")out.push(t);prev=t});return out}
+function runC(){const tok=$("path").value.trim().split(/\s+/).filter(Boolean);$("nf").textContent=tok.length;
+ const cols=["#4C78A8","#F58518","#54A24B","#E45756","#72B7B2","#B279A2"];const cm={};let ci=0;
+ const col=t=>t==="_"?"#999":(cm[t]??(cm[t]=cols[ci++%cols.length]));
+ const merged=[];tok.forEach((t,i)=>{if(i===0||t!==tok[i-1])merged.push(t)});
+ const fin=collapse(tok);
+ $("steps").innerHTML="<p><b>frames:</b> "+tok.map(t=>"<span class='tok' style='background:"+col(t)+"'>"+t+"</span>").join("")+"</p><p><b>1. merge repeats:</b> "+merged.map(t=>"<span class='tok' style='background:"+col(t)+"'>"+t+"</span>").join("")+"</p><p><b>2. drop blanks:</b> "+fin.map(t=>"<span class='tok' style='background:"+col(t)+"'>"+t+"</span>").join("")+"</p><p><b>text:</b> <code>"+fin.join("")+"</code></p>"}
+function ed(a,b){const n=a.length,m=b.length,D=Array.from({length:n+1},()=>new Array(m+1).fill(0));for(let i=0;i<=n;i++)D[i][0]=i;for(let j=0;j<=m;j++)D[0][j]=j;
+ for(let i=1;i<=n;i++)for(let j=1;j<=m;j++)D[i][j]=Math.min(D[i-1][j]+1,D[i][j-1]+1,D[i-1][j-1]+(a[i-1]!==b[j-1]?1:0));
+ let i=n,j=m;const ops=[];while(i>0||j>0){if(i>0&&j>0&&D[i][j]===D[i-1][j-1]+(a[i-1]!==b[j-1]?1:0)){ops.push([a[i-1]===b[j-1]?"ok":"S",a[i-1],b[j-1]]);i--;j--}else if(i>0&&D[i][j]===D[i-1][j]+1){ops.push(["D",a[i-1],""]);i--}else{ops.push(["I","",b[j-1]]);j--}}return ops.reverse()}
+function runW(){const u=$("unit").value,r=u==="w"?$("ref").value.trim().split(/\s+/).filter(Boolean):[...$("ref").value],h=u==="w"?$("hyp").value.trim().split(/\s+/).filter(Boolean):[...$("hyp").value];
+ const ops=ed(r,h),S=ops.filter(o=>o[0]==="S").length,D=ops.filter(o=>o[0]==="D").length,I=ops.filter(o=>o[0]==="I").length,N=r.length,rate=N?(S+D+I)/N:0;
+ $("out").innerHTML="<p><b>"+(u==="w"?"WER":"CER")+" = (S+D+I)/N = ("+S+"+"+D+"+"+I+")/"+N+" = <span class='"+(rate>0.3?"hot":"ok")+"'>"+(rate*100).toFixed(1)+"%</span></b></p>";
+ $("al").innerHTML="<table><tr><th>ref</th>"+ops.map(o=>"<td>"+(o[1]||"-")+"</td>").join("")+"</tr><tr><th>hyp</th>"+ops.map(o=>"<td>"+(o[2]||"-")+"</td>").join("")+"</tr><tr><th>op</th>"+ops.map(o=>"<td class='"+(o[0]==="ok"?"ok":"hot")+"'>"+o[0]+"</td>").join("")+"</tr></table>"}
+["path"].forEach(i=>$(i).addEventListener("input",runC));["ref","hyp","unit"].forEach(i=>$(i).addEventListener("input",runW));runC();runW();
+</script>
+</body></html>

@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KV-Cache Calculator — Tier 11</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}
+b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}
+button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}
+.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:right}th:first-child,td:first-child{text-align:left}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.kpi div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.kpi b{font-size:16px}
+</style></head><body>
+<h1>KV-cache memory calculator, GQA effect &amp; PagedAttention blocks</h1>
+<p class="sub">bytes = 2 (K and V) × layers × kv_heads × head_dim × seq_len × batch × bytes/element. The shapes in the presets are <b>illustrative</b> (REVIEW_REQUIRED: check the real model config before budgeting).</p>
+<div class="card">
+<label><span class="n">preset (illustrative)</span><select id="pre"><option value="">custom</option><option value="32,32,8,128">7B-class, GQA 8 kv-heads</option><option value="32,32,32,128">7B-class, full MHA</option><option value="80,64,8,128">70B-class, GQA 8</option><option value="80,64,64,128">70B-class, full MHA</option></select></label>
+<label><span class="n">layers</span><input id="L" type="range" min="1" max="128" value="32"><b class="v" id="Lv"></b></label>
+<label><span class="n">query heads</span><input id="H" type="range" min="1" max="128" value="32"><b class="v" id="Hv"></b></label>
+<label><span class="n">KV heads (GQA)</span><input id="G" type="range" min="1" max="128" value="8"><b class="v" id="Gv"></b></label>
+<label><span class="n">head_dim</span><input id="D" type="range" min="16" max="256" step="16" value="128"><b class="v" id="Dv"></b></label>
+<label><span class="n">sequence length</span><input id="S" type="range" min="128" max="131072" step="128" value="4096"><b class="v" id="Sv"></b></label>
+<label><span class="n">batch (concurrent seqs)</span><input id="B" type="range" min="1" max="256" value="8"><b class="v" id="Bv"></b></label>
+<label><span class="n">KV dtype</span><select id="dt"><option value="4">fp32 (4 B)</option><option value="2" selected>fp16/bf16 (2 B)</option><option value="1">fp8/int8 (1 B)</option><option value="0.5">int4 (0.5 B)</option></select></label>
+<label><span class="n">GPU memory (GB)</span><input id="GB" type="range" min="8" max="192" value="80"><b class="v" id="GBv"></b></label>
+<label><span class="n">weights (GB)</span><input id="WG" type="range" min="1" max="160" value="14"><b class="v" id="WGv"></b></label>
+</div>
+<div class="card"><canvas id="c"></canvas><div class="kpi" id="kpi"></div><p class="note" id="warn"></p></div>
+<div class="card"><b>PagedAttention: block table vs contiguous reservation</b>
+<label><span class="n">block size (tokens)</span><input id="BS" type="range" min="1" max="128" value="16"><b class="v" id="BSv"></b></label>
+<label><span class="n">max context reserved</span><input id="MX" type="range" min="256" max="4096" step="64" value="2048"><b class="v" id="MXv"></b></label>
+<label><span class="n">sequences</span><input id="NS" type="range" min="2" max="24" value="12"><b class="v" id="NSv"></b></label>
+<button id="re">New random lengths</button>
+<canvas id="p" style="margin-top:8px"></canvas><div class="kpi" id="pk"></div>
+<p class="note">Each row is a sequence. Contiguous allocators reserve the max context up front (grey = wasted). Paged allocators hand out fixed blocks on demand; only the last block of each sequence is partly empty (red hatch = internal fragmentation).</p></div>
+<script>
+const $=i=>document.getElementById(i);
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(c,h){const dpr=window.devicePixelRatio||1,w=c.clientWidth||900;c.width=w*dpr;c.height=h*dpr;c.style.height=h+"px";const g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);return {g,w,h}}
+function rng(seed){let s=seed>>>0||1;return()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296}}
+function bind(ids,fn){ids.forEach(i=>{const e=$(i);e.addEventListener("input",fn);e.addEventListener("change",fn)});window.addEventListener("resize",fn);matchMedia("(prefers-color-scheme:dark)").addEventListener("change",fn)}
+function fmtB(b){const u=["B","KB","MB","GB","TB"];let i=0;while(b>=1024&&i<4){b/=1024;i++}return b.toFixed(b<10?2:1)+" "+u[i]}
+
+let seed=7,lens=[];
+function mk(){const r=rng(seed),n=+$("NS").value,mx=+$("MX").value;lens=Array.from({length:24},()=>Math.max(8,Math.floor(mx*(0.05+0.85*r()*r()))))}
+$("re").onclick=()=>{seed=Math.floor(Math.random()*1e6)+1;mk();run()};
+$("pre").onchange=()=>{const v=$("pre").value;if(!v)return;const [L,H,G,D]=v.split(",").map(Number);$("L").value=L;$("H").value=H;$("G").value=G;$("D").value=D;run()};
+function run(){["L","H","G","D","S","B","GB","WG","BS","MX","NS"].forEach(i=>$(i+"v").textContent=$(i).value);
+ const L=+$("L").value,H=+$("H").value,G=Math.min(+$("G").value,H),D=+$("D").value,S=+$("S").value,B=+$("B").value,by=+$("dt").value,GB=+$("GB").value,WG=+$("WG").value;
+ const tok=2*L*G*D*by,perSeq=tok*S,total=perSeq*B,mha=2*L*H*D*by*S*B,mqa=2*L*1*D*by*S*B;
+ const free=GB*0.9*1e9-WG*1e9,maxSeq=Math.max(0,Math.floor(free/perSeq));
+ $("kpi").innerHTML=`<div>per token <b>${fmtB(tok)}</b></div><div>per sequence <b>${fmtB(perSeq)}</b></div><div>batch total <b>${fmtB(total)}</b></div><div>GQA saves <b>${(H/G).toFixed(1)}×</b> vs MHA</div><div>max concurrent seqs (90% of GPU − weights) <b>${maxSeq}</b></div>`;
+ $("warn").textContent=total>free?"Batch KV exceeds free GPU memory: reduce batch/context, use GQA, quantize KV, or add GPUs (tensor-parallel).":"Fits in the memory budget (ignores activations/fragmentation).";
+ const {g,w,h}=setup($("c"),230);const items=[["MHA (all heads)",mha,col("--hot")],["your config ("+G+" KV heads)",total,col("--ac")],["MQA (1 KV head)",mqa,col("--ok")],["free GPU budget",Math.max(free,0),col("--mut")]];
+ const mx=Math.max(...items.map(i=>i[1]),1);g.font="13px sans-serif";
+ items.forEach(([n,v,c],i)=>{const y=20+i*52,bw=(w-250)*v/mx;g.fillStyle=col("--fg");g.fillText(n,8,y+20);g.fillStyle=c;g.fillRect(190,y,Math.max(bw,2),32);g.fillStyle=col("--fg");g.fillText(fmtB(v),195+bw,y+21)});
+ // paged
+ const BS=+$("BS").value,MX=+$("MX").value,NS=+$("NS").value;mk();const ls=lens.slice(0,NS).map(x=>Math.min(x,MX));
+ const P=setup($("p"),Math.max(120,NS*18+30));const pg=P.g,cell=(P.w-60)/MX;let usedC=0,wasteC=0,blocks=0,frag=0;
+ ls.forEach((len,i)=>{const y=10+i*18;pg.fillStyle=col("--grid");pg.fillRect(50,y,MX*cell,14);const nb=Math.ceil(len/BS);blocks+=nb;frag+=nb*BS-len;usedC+=len;wasteC+=MX-len;
+  for(let b=0;b<nb;b++){const x0=50+b*BS*cell,bw=Math.min(BS,MX-b*BS)*cell;pg.fillStyle=col("--ac");pg.fillRect(x0,y,Math.min(bw,(len-b*BS)*cell),14);if((b+1)*BS>len){pg.fillStyle=col("--hot");pg.globalAlpha=.55;pg.fillRect(x0+(len-b*BS)*cell,y,((b+1)*BS-len)*cell,14);pg.globalAlpha=1}
+   pg.strokeStyle=col("--bg");pg.strokeRect(x0,y,bw,14)}
+  pg.fillStyle=col("--mut");pg.font="11px sans-serif";pg.fillText("s"+i,8,y+11)});
+ const tk=ls.reduce((a,b)=>a+b,0);
+ $("pk").innerHTML=`<div>live tokens <b>${tk}</b></div><div>contiguous reserved <b>${NS*MX}</b> (utilization <b>${(100*tk/(NS*MX)).toFixed(0)}%</b>)</div><div>paged allocated <b>${blocks*BS}</b> (utilization <b>${(100*tk/(blocks*BS)).toFixed(0)}%</b>)</div><div>blocks used <b>${blocks}</b></div>`}
+bind(["L","H","G","D","S","B","dt","GB","WG","BS","MX","NS"],run);mk();run();
+</script></body></html>

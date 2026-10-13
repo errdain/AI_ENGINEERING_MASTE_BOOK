@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Video Frame Sampling Explorer - Tier 14</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:70px;text-align:right;font-variant-numeric:tabular-nums}select,input[type=text],textarea{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:5px;font:14px monospace;max-width:100%}input[type=text]{width:100%}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:left}.tok{display:inline-block;padding:2px 6px;margin:2px;border-radius:5px;color:#fff;font:13px monospace}.hot{color:var(--hot);font-weight:bold}.ok{color:var(--ok);font-weight:bold}button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}</style></head><body>
+
+<h1>Video frame-sampling and token-budget explorer</h1>
+<p class="sub">A synthetic clip with hard shot cuts (red lines) is sampled by uniform-k, fixed stride or target-fps. See which shots your sampler misses and how many tokens the sampled frames cost a video-language model.</p>
+<div class="card">
+<label><span class="n">clip length (s)</span><input id="dur" type="range" min="5" max="600" step="5" value="60"><b class="v" id="durv"></b></label>
+<label><span class="n">source fps</span><input id="fps" type="range" min="10" max="60" step="1" value="30"><b class="v" id="fpsv"></b></label>
+<label><span class="n">strategy</span><select id="mode"><option value="k">uniform: K frames</option><option value="s">stride: every Nth frame</option><option value="f">target fps</option></select></label>
+<label><span class="n">K / N / fps value</span><input id="val" type="range" min="1" max="64" step="1" value="8"><b class="v" id="valv"></b></label>
+<label><span class="n">shot length avg (s)</span><input id="shot" type="range" min="1" max="30" step="1" value="6"><b class="v" id="shotv"></b></label>
+<label><span class="n">tokens per frame</span><input id="tpf" type="range" min="16" max="1024" step="16" value="256"><b class="v" id="tpfv"></b></label>
+<label><span class="n">price (USD / 1M input tokens)</span><input id="px" type="range" min="0.05" max="10" step="0.05" value="1"><b class="v" id="pxv"></b></label></div>
+<div class="card"><canvas id="c" width="900" height="150"></canvas></div>
+<div class="card"><table id="tb"></table><p class="note">Prices and tokens-per-frame are free parameters of this calculator, not provider quotes (REVIEW_REQUIRED for any real model). Uniform-K guarantees coverage but not temporal density; fixed stride grows cost linearly with length; fast events shorter than the sampling gap can be missed entirely.</p></div>
+<script>
+const $=i=>document.getElementById(i);
+function run(){const dur=+$("dur").value,fps=+$("fps").value,mode=$("mode").value,val=+$("val").value,sh=+$("shot").value,tpf=+$("tpf").value,px=+$("px").value;
+ const n=Math.floor(dur*fps);["dur","fps","val","shot","tpf","px"].forEach(i=>$(i+"v").textContent=$(i).value);
+ let idx=[];if(mode==="k"){for(let i=0;i<val;i++)idx.push(Math.min(n-1,Math.floor((i+0.5)*n/val)))}else if(mode==="s"){for(let i=0;i<n;i+=val)idx.push(i)}else{for(let t=0;t<dur;t+=1/val)idx.push(Math.min(n-1,Math.round(t*fps)))}
+ // deterministic shot boundaries
+ let cuts=[0],t=0,s=1;while(true){s=(s*9301+49297)%233280;t+=sh*(0.5+s/233280);if(t>=dur)break;cuts.push(Math.floor(t*fps))}cuts.push(n);
+ const c=$("c"),g=c.getContext("2d"),W=c.width-20;g.clearRect(0,0,c.width,c.height);
+ let seen=0;for(let k=0;k<cuts.length-1;k++){const hit=idx.some(i=>i>=cuts[k]&&i<cuts[k+1]);if(hit)seen++;g.fillStyle=hit?"#54A24B55":"#E4575655";g.fillRect(10+cuts[k]/n*W,30,(cuts[k+1]-cuts[k])/n*W,50);g.strokeStyle="#E45756";g.beginPath();g.moveTo(10+cuts[k]/n*W,26);g.lineTo(10+cuts[k]/n*W,84);g.stroke()}
+ g.strokeStyle="#F58518";idx.forEach(i=>{g.beginPath();g.moveTo(10+i/n*W,90);g.lineTo(10+i/n*W,120);g.stroke()});
+ g.fillStyle="#889";g.font="12px sans-serif";g.fillText("shots: green = at least one sampled frame, red = missed",10,16);g.fillText("orange ticks = sampled frames ("+idx.length+")",10,140);
+ const nsh=cuts.length-1,toks=idx.length*tpf,usd=toks/1e6*px;
+ $("tb").innerHTML="<tr><th>total source frames</th><td>"+n+"</td></tr><tr><th>frames sampled</th><td>"+idx.length+" ("+(100*idx.length/n).toFixed(2)+"%)</td></tr><tr><th>effective sampled fps</th><td>"+(idx.length/dur).toFixed(3)+"</td></tr><tr><th>mean gap between samples</th><td>"+(dur/idx.length).toFixed(2)+" s</td></tr><tr><th>shots in clip</th><td>"+nsh+"</td></tr><tr><th>shots covered</th><td class='"+(seen===nsh?"ok":"hot")+"'>"+seen+" / "+nsh+"</td></tr><tr><th>visual tokens</th><td>"+toks.toLocaleString()+"</td></tr><tr><th>input cost</th><td>$"+usd.toFixed(4)+" per clip</td></tr>"}
+["dur","fps","mode","val","shot","tpf","px"].forEach(i=>$(i).addEventListener("input",run));run();
+</script>
+</body></html>

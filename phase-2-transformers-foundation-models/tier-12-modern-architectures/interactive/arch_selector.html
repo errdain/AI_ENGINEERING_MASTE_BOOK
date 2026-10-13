@@ -1,0 +1,47 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Architecture Selection Tool - Tier 12</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}.stat{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.stat div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.stat b{font-variant-numeric:tabular-nums}.cell{display:inline-block;width:26px;height:26px;margin:1px;border-radius:5px;color:#fff;font:12px/26px monospace;text-align:center;cursor:pointer;user-select:none}.bar{height:14px;border-radius:4px;background:var(--ac)}</style></head><body>
+<h1>Architecture selection decision tool</h1><p class="sub">Describe the workload; the tool checks memory feasibility from the Tier 12 formulas and ranks architecture <em>archetypes</em> with transparent rules. It is a teaching heuristic, not a benchmark: quality is never estimated (concept 12.23).</p>
+<div class="card">
+<label><span class="n">task</span><select id="task"><option value="cls">classification / embeddings / tagging</option><option value="gen" selected>open-ended generation / chat</option><option value="s2s">input→output transform (translation, summarization)</option><option value="doc">long-document reading / retrieval-free QA</option></select></label>
+<label><span class="n">context needed (tokens)</span><input id="ctx" type="range" min="9" max="21" value="15"><b class="v" id="cxv"></b></label>
+<label><span class="n">GPU memory (GB, total)</span><input id="gb" type="range" min="16" max="640" step="8" value="80"><b class="v" id="gbv"></b></label>
+<label><span class="n">concurrent sequences</span><input id="u" type="range" min="1" max="256" value="16"><b class="v" id="uv"></b></label>
+<label><span class="n">latency priority</span><input id="lat" type="range" min="0" max="2" value="1"><b class="v" id="latv"></b></label>
+<label><span class="n">need exact recall of far-back text</span><input id="rec" type="checkbox" checked></label>
+<label><span class="n">can afford multi-GPU / more memory</span><input id="multi" type="checkbox"></label></div>
+<div class="card"><table id="t"></table><p class="note" id="nt"></p></div>
+<script>
+const $=i=>document.getElementById(i);
+// 7B-ish archetypes: weights GB (bf16), KV bytes per token (32 layers), window, state bytes, notes. Illustrative.
+const A=[
+ {n:"Encoder-only (BERT-style)",w:0.22,kv:0,win:0,st:0,max:512,gen:false,note:"bidirectional; no KV cache; cannot generate text"},
+ {n:"Encoder-decoder (T5-style)",w:0.9,kv:2*32*8*64*2,win:0,st:0,max:4096,gen:true,note:"encoder reads input once; good for transform tasks"},
+ {n:"Dense decoder, MHA",w:13.5,kv:2*32*32*128*2,win:0,st:0,max:8192,gen:true,note:"largest KV cache"},
+ {n:"Dense decoder, GQA",w:13.5,kv:2*32*8*128*2,win:0,st:0,max:131072,gen:true,note:"default modern choice; KV ÷ H/H_kv"},
+ {n:"GQA + sliding window (mixed local/global)",w:13.5,kv:2*16*8*128*2,win:4096,st:0,max:131072,gen:true,note:"half the layers capped at window, half global"},
+ {n:"Sparse MoE decoder (GQA)",w:93.4,kv:2*32*8*128*2,win:0,st:0,max:131072,gen:true,note:"more capacity per FLOP, but all experts in memory"},
+ {n:"Pure SSM (Mamba-style)",w:10.6,kv:0,win:0,st:32*(2*4096*16+2*4096*3)*2*1.5,max:1e9,gen:true,note:"constant state, linear time; weaker exact recall"},
+ {n:"Hybrid SSM + few attention layers",w:15.4,kv:2*4*8*128*2,win:0,st:28*(2*4096*16+2*4096*3)*2,max:1e9,gen:true,note:"cheap long context with some precise lookup"}];
+function run(){const n=Math.pow(2,+$("ctx").value),gb=+$("gb").value,u=+$("u").value,lat=+$("lat").value,task=$("task").value,rec=$("rec").checked,multi=$("multi").checked;
+ $("cxv").textContent=n.toLocaleString();$("gbv").textContent=gb;$("uv").textContent=u;$("latv").textContent=["relaxed","normal","strict"][lat];
+ const rows=A.map(a=>{let s=50;const why=[];
+  const cache=(a.kv*(a.win?0.5*n+0.5*Math.min(n,a.win):n)+a.st)*u/1e9; // GB for all sequences
+  const mem=a.w+cache;const fits=mem<=gb*0.9;const fitsWeights=a.w<=gb*0.9;
+  if(!fits){s-=40;why.push(`needs ≈${mem.toFixed(0)} GB (weights ${a.w} + cache ${cache.toFixed(1)}) > budget`)}else why.push(`fits: ≈${mem.toFixed(0)} GB`);
+  if(a.w>gb*0.9&&multi){s+=25;why.push("multi-GPU allowed")}
+  if(n>a.max){s-=30;why.push(`typical trained context ≤ ${a.max>1e8?"∞ (state)":a.max} (REVIEW_REQUIRED)`)}
+  if(task==="cls"){if(!a.gen){s+=35;why.push("encoder is the natural fit and cheapest")}else{s-=15;why.push("decoder is overkill for labels")}}
+  if(task!=="cls"&&!a.gen){s-=60;why.push("cannot generate")}
+  if(task==="s2s"&&a.n.startsWith("Encoder-decoder")){s+=20;why.push("encoder-decoder suits transform tasks")}
+  if(task==="gen"&&a.n.startsWith("Dense decoder, GQA")){s+=10}
+  if(task==="gen"&&a.n.startsWith("Sparse")){s+=8;why.push("high quality per active FLOP")}
+  if(task==="doc"){if(a.win||a.st){s+=10}if(a.kv===0&&a.st>0||a.n.startsWith("Hybrid")){s+=10}}
+  if(rec&&a.n.startsWith("Pure SSM")){s-=15;why.push("exact far-back recall is the known SSM weak spot")}
+  if(rec&&a.win){s-=8;why.push("window layers cannot see beyond w directly")}
+  if(lat===2&&a.n.startsWith("Sparse")){s-=5;why.push("routing/all-to-all adds latency at small batch")}
+  if(lat===2&&(a.st>0)){s+=6;why.push("O(1) work per token")}
+  if(u>=64&&a.kv>0&&a.n.indexOf("MHA")>=0){s-=10;why.push("cache limits concurrency")}
+  return{a,s,why,fits}}).sort((x,y)=>y.s-x.s);
+ $("t").innerHTML="<tr><th>#</th><th>archetype</th><th>score</th><th>why</th></tr>"+rows.map((r,i)=>`<tr><td>${i+1}</td><td><b>${r.a.n}</b></td><td>${Math.round(r.s)}</td><td>${r.why.join("; ")}.</td></tr>`).join("");
+ $("nt").textContent="Archetype sizes are ~7B-class illustrative numbers computed with lab/arch_matrix.py conventions (MoE = 8 experts, top-2). The rules encode design heuristics from the README, not measured quality: always evaluate candidate models on YOUR task."}
+["task","ctx","gb","u","lat","rec","multi"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>

@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Batching Gantt — Tier 11</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}
+b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}
+button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}
+.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:right}th:first-child,td:first-child{text-align:left}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.kpi div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.kpi b{font-size:16px}
+</style></head><body>
+<h1>Static vs continuous batching (animated Gantt)</h1>
+<p class="sub">Same requests, same GPU slots. Static batching waits for the whole batch to finish before admitting new work; continuous batching refills a slot the moment its request ends. Each box = one request: thin light part = waiting in queue, solid = prefill + decode.</p>
+<div class="card">
+<label><span class="n">GPU batch slots</span><input id="sl" type="range" min="1" max="8" value="4"><b class="v" id="slv"></b></label>
+<label><span class="n">requests</span><input id="nr" type="range" min="4" max="24" value="12"><b class="v" id="nrv"></b></label>
+<label><span class="n">output length spread</span><input id="sp" type="range" min="0" max="100" value="70"><b class="v" id="spv"></b></label>
+<label><span class="n">arrival gap (ticks)</span><input id="ar" type="range" min="0" max="6" value="1"><b class="v" id="arv"></b></label>
+<label><span class="n">random seed</span><input id="sd" type="range" min="1" max="50" value="3"><b class="v" id="sdv"></b></label>
+<label><span class="n">time (scrub or play)</span><input id="tm" type="range" min="0" max="200" value="0"><b class="v" id="tmv"></b></label>
+<button id="play">Play</button> <button id="rst">Reset</button></div>
+<div class="card"><b>Static batching</b><canvas id="a"></canvas><div class="kpi" id="ka"></div></div>
+<div class="card"><b>Continuous batching</b><canvas id="b"></canvas><div class="kpi" id="kb"></div></div>
+<p class="note">Teaches 11.19, 11.20, 11.22. Toy model: 1 tick = 1 decode step for every running request; prefill costs 1 tick and is not overlapped. Memory (KV) limits are in the Python lab scheduler, not here.</p>
+<script>
+const $=i=>document.getElementById(i);
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(c,h){const dpr=window.devicePixelRatio||1,w=c.clientWidth||900;c.width=w*dpr;c.height=h*dpr;c.style.height=h+"px";const g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);return {g,w,h}}
+function rng(seed){let s=seed>>>0||1;return()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296}}
+function bind(ids,fn){ids.forEach(i=>{const e=$(i);e.addEventListener("input",fn);e.addEventListener("change",fn)});window.addEventListener("resize",fn);matchMedia("(prefers-color-scheme:dark)").addEventListener("change",fn)}
+function fmtB(b){const u=["B","KB","MB","GB","TB"];let i=0;while(b>=1024&&i<4){b/=1024;i++}return b.toFixed(b<10?2:1)+" "+u[i]}
+
+function sched(reqs,slots,mode){const q=[],run=[],done=[],items=reqs.map(r=>({...r,slot:-1,start:-1,end:-1,left:r.out}));let pend=[...items],t=0,free=Array.from({length:slots},(_,i)=>i);
+ while(done.length<items.length&&t<2000){while(pend.length&&pend[0].arr<=t)q.push(pend.shift());
+  const canAdmit=mode==="cont"||run.length===0;
+  if(canAdmit)while(q.length&&free.length&&(mode==="cont"||true)){const r=q.shift();r.slot=free.shift();r.start=t;run.push(r);if(mode==="static"&&!free.length)break}
+  // static: batch fixed at admission time; only admit when empty
+  run.forEach(r=>{if(r.start===t){r.pre=1}});
+  const act=run.filter(r=>r.start<t||true);
+  for(const r of [...run]){if(r.start===t)continue;r.left--;if(r.left<=0){r.end=t+1;run.splice(run.indexOf(r),1);free.push(r.slot);done.push(r)}}
+  free.sort((a,b)=>a-b);t++}
+ return items}
+let play=false,timer=null,A,Bs,total=100;
+function gen(){const r=rng(+$("sd").value*977),n=+$("nr").value,sp=+$("sp").value/100,gap=+$("ar").value;let a=0;return Array.from({length:n},(_,i)=>{a+=Math.floor(r()*(gap+1));const out=Math.max(2,Math.round(4+(r()<.5?r()*6:r()*30)*sp+ (1-sp)*10));return {id:i,arr:a,out}})}
+function draw(cv,items,slots,t,k){const {g,w,h}=setup($(cv),slots*34+40);const T=total,x0=40,sx=(w-x0-10)/T;g.font="11px sans-serif";
+ for(let s=0;s<slots;s++){g.fillStyle=col("--mut");g.fillText("slot "+s,2,s*34+26);g.strokeStyle=col("--grid");g.strokeRect(x0,s*34+8,w-x0-10,30)}
+ for(let x=0;x<=T;x+=10){g.fillStyle=col("--mut");g.fillText(x,x0+x*sx-6,slots*34+22);g.strokeStyle=col("--grid");g.beginPath();g.moveTo(x0+x*sx,6);g.lineTo(x0+x*sx,slots*34+8);g.stroke()}
+ const pal=["#4C78A8","#F58518","#54A24B","#E45756","#72B7B2","#B279A2","#9D755D","#EECA3B"];
+ items.forEach(r=>{if(r.start>t)return;const c=pal[r.id%8],e=Math.min(r.end,t),y=r.slot*34+10;
+  g.fillStyle=c;g.fillRect(x0+r.start*sx,y,Math.max(1,(e-r.start)*sx),26);
+  g.fillStyle="#fff";g.fillRect(x0+r.start*sx,y,Math.min(sx,(e-r.start)*sx),26);g.fillStyle=c;g.globalAlpha=.4;g.fillRect(x0+r.start*sx,y,Math.min(sx,(e-r.start)*sx),26);g.globalAlpha=1;
+  if((e-r.start)*sx>16){g.fillStyle="#fff";g.fillText("r"+r.id,x0+r.start*sx+Math.min(sx,2)+3,y+17)}});
+ g.strokeStyle=col("--hot");g.lineWidth=2;g.beginPath();g.moveTo(x0+t*sx,2);g.lineTo(x0+t*sx,slots*34+10);g.stroke();
+ const fin=items.filter(r=>r.end>=0&&r.end<=t),mk=Math.max(...items.map(r=>r.end)),busy=items.reduce((a,r)=>a+r.end-r.start,0);
+ $(k).innerHTML=`<div>finished by t <b>${fin.length}/${items.length}</b></div><div>makespan <b>${mk}</b></div><div>mean latency <b>${(items.reduce((a,r)=>a+r.end-r.arr,0)/items.length).toFixed(1)}</b></div><div>mean queue wait <b>${(items.reduce((a,r)=>a+r.start-r.arr,0)/items.length).toFixed(1)}</b></div><div>slot utilization <b>${(100*busy/(slots*mk)).toFixed(0)}%</b></div>`}
+function regen(){const rq=gen(),sl=+$("sl").value;A=sched(rq,sl,"static");Bs=sched(rq,sl,"cont");total=Math.max(40,Math.ceil(Math.max(...A.map(r=>r.end))/10)*10);$("tm").max=total;if(+$("tm").value>total)$("tm").value=total;paint()}
+function paint(){["sl","nr","sp","ar","sd","tm"].forEach(i=>$(i+"v").textContent=$(i).value);const t=+$("tm").value,sl=+$("sl").value;draw("a",A,sl,t,"ka");draw("b",Bs,sl,t,"kb")}
+bind(["sl","nr","sp","ar","sd"],regen);$("tm").addEventListener("input",paint);
+$("play").onclick=()=>{play=!play;$("play").textContent=play?"Pause":"Play";clearInterval(timer);if(play)timer=setInterval(()=>{let t=+$("tm").value+1;if(t>total){t=total;play=false;$("play").textContent="Play";clearInterval(timer)}$("tm").value=t;paint()},120)};
+$("rst").onclick=()=>{$("tm").value=0;paint()};regen();
+</script></body></html>
