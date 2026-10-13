@@ -359,3 +359,10 @@ A chapter cannot become FINAL unless:
 [ ] Interview section checked
 [ ] Duplicate content checked
 [ ] References checked where required
+
+---
+
+# FILE LAYOUT RULE
+
+One folder per tier (`tier-NN-<slug>/`) and one `.md` file per concept (`NN.CC-<concept-slug>.md`).
+Never combine a whole tier into a single file. See `CHAPTER_STATUS.md` for the full layout.
