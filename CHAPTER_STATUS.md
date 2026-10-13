@@ -48,7 +48,7 @@ Rule used for proposals: author and critic are always different models (Claude �
 |---|---|---|---|---|---|---|---|---|---|
 | 01 | 1 | Mathematics for AI | 47 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (47 concepts, lab, revision sheet; ready for Critic) | Reference |
 | 02 | 1 | Machine Learning Fundamentals | 51 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (51 concepts, lab, revision sheet; ready for Critic) | Reference |
-| 03 | 1 | Neural Networks | 32 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
+| 03 | 1 | Neural Networks | 32 | Claude | ChatGPT | Codex | ChatGPT | IN PROGRESS (3.1–3.17 drafted) | Reference |
 | 04 | 1 | Deep Learning Training & Optimization | 41 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
 | 05 | 1 | Sequence Models | 27 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
 | 06 | 2 | Tokenization & Embeddings | 32 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Reference |
@@ -93,3 +93,4 @@ Rule used for proposals: author and critic are always different models (Claude �
 - Open proposal: add "number of axes" vs "vector dimension" to `GLOSSARY.md` (needs Critic decision).
 - `AUTHOR_REVIEW_GUIDE.md` refers to `ROADMAP.md`; the file is `ROADMAP_V1.0_FROZEN.md`.
 - Tier 2: all 51 concepts drafted in `tier-02-ml-fundamentals/` (one file each); `code/mlkit.py` + `lab/` parts 1–4 with `lab/README.md`; run `python -m pytest -q code lab` (83 tests). PROPOSE_ADDITION raised in `tier-02-ml-fundamentals/reviews/author_open_items.md`: Tier 1 refers to PCA, Naive Bayes, decision trees and named regression models that are not in the frozen Tier 2 list; duplication 2.45/2.50 flagged. Condensed `tier-02-ml-fundamentals/revision_sheet.md` added. Next stage: Critic (ChatGPT) on branch `chatgpt-bgc-1012`.
+- Tier 3: concepts 3.1–3.17 drafted in `tier-03-neural-networks/` (one file each) with `code/nn.py` (21 tests, checked against PyTorch) and `lab/lab_01_neurons_and_mlp.py` (9 tests). Remaining: 3.18–3.32 (forward/backprop/autodiff, initialization, gradient problems, residuals, dropout, weight decay, normalization), PyTorch build, lab README, revision sheet.
