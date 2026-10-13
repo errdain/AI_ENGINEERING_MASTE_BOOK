@@ -29,3 +29,13 @@ Author's handling for now: Tier 2 uses linear regression, logistic regression an
 - REVIEW_REQUIRED: 2.5/2.6 statements about BERT-style masked LMs, RLHF and 'most LLM agents are not trained with RL' are general background claims without citations.
 - REVIEW_REQUIRED: 2.13 'benchmark contamination' paragraph needs a citation.
 - Forward references to later tiers: Tier 3, 6, 8, 9, 10, 13, 14, 15, 19, 21, 26, 30, 32, 38.
+
+## Batch 2 (2.14–2.25)
+
+- TESTED: `lab/lab_02_models_and_training.py` (19 tests in `lab/test_lab_02_models_and_training.py`). Silhouette implementation checked against scikit-learn. Whole tier so far: 32 `code/` + 28 `lab/` = 60 tests.
+- Numbers in the text come from fixed seeds on NumPy 2.5.4; tests assert directions/thresholds.
+- DUPLICATION to adjudicate (roadmap lists both): SGD = 2.20 and 4.6; batch size = 2.21/2.23 and 4.13; training loop vocabulary (epoch/iteration) vs 4.1; loss definition 2.17 vs 4.3; learning rate 2.25 vs LR scheduling 4.10. Author handling: Tier 2 is the conceptual and NumPy-mechanics authority; each file points to the Tier 4 concept for PyTorch/engineering detail.
+- TIER 1 CROSS-REFERENCES to fix after Critic review: Tier 1 files say "Tier 4 Loss functions" and "Tier 4 SGD/Optimizers"; the loss definition is authoritative in 2.17 (Tier 4 only has 4.3 Loss calculation). Also see the PROPOSE_ADDITION above.
+- REVIEW_REQUIRED: 2.18 claim that weight decay and L2 regularization differ under adaptive optimizers (AdamW); 2.21 batch-size/learning-rate scaling heuristics and large-batch generalization statement; 2.22 "1–5 epochs for fine-tuning" rule of thumb and "LLM pretraining often <1 epoch" statement; 2.20 Robbins–Monro conditions are stated without derivation.
+- NOT_TESTED: the exercises in 2.14–2.25 (quantile loss, concentric rings, throughput vs batch size, LR-range test) are described, not shipped as code.
+- Lab limitation: the multiclass model (`fit_softmax_regression`) lives in the lab file, not `mlkit.py`; binary logistic regression is the library-verified model.
