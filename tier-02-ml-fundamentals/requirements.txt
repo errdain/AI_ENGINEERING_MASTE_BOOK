@@ -1,0 +1,4 @@
+numpy>=2.0
+pytest>=8
+scikit-learn>=1.4   # reference implementation used ONLY in tests (code/test_mlkit.py)
+scipy               # pulled in by scikit-learn; used for ks_2samp in one test
