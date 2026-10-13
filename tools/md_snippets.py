@@ -23,7 +23,7 @@ import re
 import subprocess
 import sys
 
-PAIR = re.compile(r"```python\n(?P<code>.*?)\n```\n\n```text\n(?P<out>.*?)\n?```", re.S)
+PAIR = re.compile(r"```python\n(?P<code>(?:(?!```).)*?)\n```\n\n```text\n(?P<out>.*?)\n?```", re.S)
 
 
 NUM = re.compile(r"-?\d+\.?\d*(?:[eE][-+]?\d+)?")
@@ -50,7 +50,8 @@ def process(path: pathlib.Path, fill: bool) -> list[str]:
     text = path.read_text(); problems: list[str] = []; out: list[str] = []; last = 0
     for m in PAIR.finditer(text):
         actual = run(m.group("code"), path.parent)
-        if not same_output(m.group("out").rstrip("\n"), actual):
+        expected = m.group("out").rstrip("\n")
+        if (actual != expected) if fill else not same_output(expected, actual):
             problems.append(f"{path}: output differs for block starting {m.group('code').splitlines()[0]!r}\n--- page ---\n{m.group('out')}\n--- actual ---\n{actual}")
         out.append(text[last:m.start()]); out.append(f"```python\n{m.group('code')}\n```\n\n```text\n{actual}\n```"); last = m.end()
     out.append(text[last:])
