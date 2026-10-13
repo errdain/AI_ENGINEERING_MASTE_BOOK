@@ -19,7 +19,19 @@ A chapter cannot be FINAL until the Book Quality Standard checklist in `BOOK_SPE
 | Codex | Code Review | `codex-bgc1012` |
 
 Each agent commits only to its own branch. Merge into `main` only after Final Review passes.
-Author work lives in `tier-NN-<slug>/`. Reviews go in `tier-NN-<slug>/reviews/` as `critic.md`, `code_review.md`, `final_review.md`.
+## File layout (one file per concept)
+
+Each tier gets its own folder, and **each concept gets its own `.md` file**. Never one file for a whole tier.
+
+```
+tier-NN-<slug>/
+  NN.CC-<concept-slug>.md     one concept, full 23-part format (e.g. 01.10-dot-product.md)
+  code/                       runnable code + tests for the tier
+  reviews/                    critic.md, code_review.md, final_review.md, author_open_items.md
+  revision_sheet.md           condensed sheet, written after the tier is complete
+```
+
+`CC` is the two-digit concept number from the roadmap, so files sort in curriculum order. Do not renumber concepts.
 
 ## Status values
 
@@ -34,7 +46,7 @@ Rule used for proposals: author and critic are always different models (Claude �
 
 | Tier | Phase | Topic | Concepts | Author | Critic | Code Review | Final Review | Status | Source |
 |---|---|---|---|---|---|---|---|---|---|
-| 01 | 1 | Mathematics for AI | 47 | Claude | ChatGPT | Codex | ChatGPT | IN PROGRESS (1.1–1.10 drafted) | Reference |
+| 01 | 1 | Mathematics for AI | 47 | Claude | ChatGPT | Codex | ChatGPT | IN PROGRESS (1.1–1.19 drafted) | Reference |
 | 02 | 1 | Machine Learning Fundamentals | 51 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
 | 03 | 1 | Neural Networks | 32 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
 | 04 | 1 | Deep Learning Training & Optimization | 41 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
@@ -77,6 +89,6 @@ Rule used for proposals: author and critic are always different models (Claude �
 
 ## Progress notes
 
-- Tier 1: concepts 1.1–1.10 drafted in `tier-01-mathematics/T01_batch1_1.1-1.10.md` with tested NumPy code (11 tests passing). Remaining: 1.11–1.47, then Tier 1 lab and condensed revision sheet.
+- Tier 1: concepts 1.1–1.19 drafted as files `tier-01-mathematics/01.01-scalars.md` … `01.19-singular-value-decomposition.md`; 30 tests passing in `code/`. Remaining: 1.20–1.47, then Tier 1 lab and condensed revision sheet.
 - Open proposal: add "number of axes" vs "vector dimension" to `GLOSSARY.md` (needs Critic decision).
 - `AUTHOR_REVIEW_GUIDE.md` refers to `ROADMAP.md`; the file is `ROADMAP_V1.0_FROZEN.md`.
