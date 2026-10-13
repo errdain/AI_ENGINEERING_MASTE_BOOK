@@ -1,12 +1,14 @@
-# Tier 3 figures (pilot)
+# Tier 3 figures
 
-| Figure | Concept | Type | What it shows | Script | Data source |
+Original figures generated from this tier's own code (see [`../../figures-common/README.md`](../../figures-common/README.md) for the conventions).
+
+| Figure | Concept | Type | What it shows | File | Script |
 |---|---|---|---|---|---|
-| 3.9-1 | [3.9 Activation functions](../03.09-activation-functions.md) | SVG | five activations and their derivatives; saturation and dead zones | `src/fig_3_09_activations.py` | `nn.ACTIVATIONS` |
-| 3.17-1 | [3.17 MLP](../03.17-mlp.md) | PNG (3-D) | a trained 4-6-6-3 network; edge colour = weight sign, brightness = size | `src/fig_3_17_mlp_3d.py` | `nn.MLP` trained in the script |
-| 3.18-1 | [3.18 Forward propagation](../03.18-forward-propagation.md) | GIF | the worked 2-3-1 forward pass, step by step | `src/fig_3_18_forward_pass.py` | `nn.MLP.forward` |
-| 3.20-1 | [3.20 Backpropagation](../03.20-backpropagation.md) | GIF | gradients flowing backward through the same network | `src/fig_3_20_backprop.py` | `nn.MLP.backward`, `nn.mse_loss` |
-| 3.25-1 | [3.25 Vanishing gradients](../03.25-vanishing-gradients.md) | SVG | per-layer gradient norm for five 20-layer networks | `src/fig_3_25_gradient_flow.py` | `lab_02_training_internals.grad_norms_by_layer` |
-| 3.25-2 | [3.25 Vanishing gradients](../03.25-vanishing-gradients.md) | PNG (3-D) | gradient norm over depth × initial weight gain | `src/fig_3_25_gradient_flow.py` | same |
+| 3.9-1 | [3.9](../03.09-activation-functions.md) | SVG | activation functions and their derivatives | `fig_3_09_activations.svg` | `src/fig_3_09_activations.py` |
+| 3.17-1 | [3.17](../03.17-mlp.md) | PNG | a trained MLP drawn in 3D | `fig_3_17_mlp_3d.png` | `src/fig_3_17_mlp_3d.py` |
+| 3.18-1 | [3.18](../03.18-forward-propagation.md) | GIF | the forward pass, step by step (animated) | `fig_3_18_forward_pass.gif` | `src/fig_3_18_forward_pass.py` |
+| 3.20-1 | [3.20](../03.20-backpropagation.md) | GIF | backpropagation on the same network (animated) | `fig_3_20_backprop.gif` | `src/fig_3_20_backprop.py` |
+| 3.25-1 and 3.25-2 | [3.25](../03.25-vanishing-gradients.md) | SVG | how much learning signal reaches each layer, and how it depends on depth and initial scale | `fig_3_25_gradient_norms.svg` | `src/fig_3_25_gradient_flow.py` |
+| 3.25-1 and 3.25-2 | [3.25](../03.25-vanishing-gradients.md) | PNG | how much learning signal reaches each layer, and how it depends on depth and initial scale | `fig_3_25_gain_depth_surface.png` | `src/fig_3_25_gradient_flow.py` |
 
-Regenerate: `python tier-03-neural-networks/figures/src/make_all.py` (needs `matplotlib` and `pillow`; see `requirements.txt`). Conventions: [`../../figures-common/README.md`](../../figures-common/README.md).
+Regenerate everything: `python tier-03-neural-networks/figures/src/make_all.py` (needs `matplotlib` and `pillow`; see `requirements.txt`).
