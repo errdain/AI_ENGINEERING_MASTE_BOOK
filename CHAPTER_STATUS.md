@@ -49,18 +49,18 @@ Rule used for proposals: author and critic are always different models (Claude �
 | 01 | 1 | Mathematics for AI | 47 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (47 concepts, lab, revision sheet; ready for Critic) | Reference |
 | 02 | 1 | Machine Learning Fundamentals | 51 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (51 concepts, lab, revision sheet; ready for Critic) | Reference |
 | 03 | 1 | Neural Networks | 32 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, revision sheet; ready for Critic) | Reference |
-| 04 | 1 | Deep Learning Training & Optimization | 41 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
-| 05 | 1 | Sequence Models | 27 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
-| 06 | 2 | Tokenization & Embeddings | 32 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Reference |
-| 07 | 2 | Attention | 30 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Reference |
-| 08 | 2 | Transformer Architecture | 30 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Reference |
-| 09 | 2 | Foundation Model Pretraining | 31 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
-| 10 | 2 | Fine-Tuning & Alignment | 35 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
-| 11 | 2 | LLM Inference & Optimization | 47 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
-| 12 | 2 | Modern Foundation-Model Architectures | 30 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
-| 13 | 2 | Vision AI | 32 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
-| 14 | 2 | Speech, Audio & Video AI | 33 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
-| 15 | 2 | Foundation-Model Evaluation & Safety | 35 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 04 | 1 | Deep Learning Training & Optimization | 41 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (41 concepts, pipeline + profiler lab, revision sheet; ready for Critic) | Reference |
+| 05 | 1 | Sequence Models | 27 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (27 concepts, comparison lab, revision sheet; ready for Critic) | Reference |
+| 06 | 2 | Tokenization & Embeddings | 32 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Reference |
+| 07 | 2 | Attention | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Reference |
+| 08 | 2 | Transformer Architecture | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Reference |
+| 09 | 2 | Foundation Model Pretraining | 31 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (31 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
+| 10 | 2 | Fine-Tuning & Alignment | 35 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (35 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
+| 11 | 2 | LLM Inference & Optimization | 47 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (47 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
+| 12 | 2 | Modern Foundation-Model Architectures | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
+| 13 | 2 | Vision AI | 32 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
+| 14 | 2 | Speech, Audio & Video AI | 33 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (33 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
+| 15 | 2 | Foundation-Model Evaluation & Safety | 35 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (35 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
 | 16 | 3 | Raw LLM Engineering & Multi-Provider Systems | 70 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
 | 17 | 3 | Prompt & Context Engineering | 40 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
 | 18 | 3 | Memory Systems | 32 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
@@ -95,5 +95,6 @@ Rule used for proposals: author and critic are always different models (Claude �
 - Tier 2: all 51 concepts drafted in `tier-02-ml-fundamentals/` (one file each); `code/mlkit.py` + `lab/` parts 1–4 with `lab/README.md`; run `python -m pytest -q code lab` (83 tests). PROPOSE_ADDITION raised in `tier-02-ml-fundamentals/reviews/author_open_items.md`: Tier 1 refers to PCA, Naive Bayes, decision trees and named regression models that are not in the frozen Tier 2 list; duplication 2.45/2.50 flagged. Condensed `tier-02-ml-fundamentals/revision_sheet.md` added. Next stage: Critic (ChatGPT) on branch `chatgpt-bgc-1012`.
 - Tier 3: all 32 concepts drafted in `tier-03-neural-networks/` (one file each); NumPy library `code/nn.py` + `code/autodiff.py` checked against PyTorch; `lab/` parts 1–3 incl. the PyTorch rebuild; `lab/README.md`; run `python -m pytest -q code lab` (64 tests). Condensed `tier-03-neural-networks/revision_sheet.md` added. Next stage: Critic (ChatGPT) on branch `chatgpt-bgc-1012`.
 - Tier 4: all 41 concepts drafted in `tier-04-training-optimization/` in the learner-first layout (4 figures, `code/pipeline.py` training pipeline + profiler, 16 tests, revision sheet). Next stage: Critic (ChatGPT).
+- Tier 5: all 27 concepts drafted in `tier-05-sequence-models/` in the learner-first layout (7 figures, `code/seqmodels.py` + `lab/` comparison char RNN → LSTM → attention Seq2Seq, 17 tests, revision sheet). Next stage: Critic (ChatGPT).
 - Learner-first rewrite (plain-words box, glossary, worked example, three-step code ladder with executed outputs, collapsed advanced sections): Tier 1 (47), Tier 2 (51) and Tier 3 (32) done; all code blocks run under `tests/test_md_snippets.py`. Tier 4 onward is written in this layout from the start.
 - Figures: conventions in `figures-common/README.md` and `BOOK_SPECIFICATION.md` (FIGURE RULE). Rolled out so far: Tier 1 (24 figures), Tier 2 (21), Tier 3 (19 figures), each embedded in its concept file with label, alt text and a *How to read it* paragraph; tables in `tier-NN-*/figures/README.md`; regenerate with `tier-NN-*/figures/src/make_all.py`. Next: review on GitHub; later tiers get figures as they are written.

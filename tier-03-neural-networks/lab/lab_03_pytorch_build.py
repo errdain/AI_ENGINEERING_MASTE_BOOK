@@ -13,7 +13,8 @@ import torch.nn.functional as F
 
 import nn as N
 
-torch.set_default_dtype(torch.float64)
+# NOTE: the comparisons below need float64. The default dtype is switched by the test fixture (lab/conftest.py) and in __main__,
+# not at import time, so importing this module never changes PyTorch's global state for other tests.
 
 
 def _copy_mlp_to_torch(m: N.MLP, act=tnn.Tanh) -> tnn.Sequential:
@@ -87,6 +88,7 @@ def t_3_clip_grad_matches() -> dict:
 
 
 if __name__ == "__main__":
+    torch.set_default_dtype(torch.float64)
     for name, fn in sorted(globals().items()):
         if name.startswith("t_"):
             print(name, fn())
