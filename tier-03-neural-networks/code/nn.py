@@ -201,3 +201,158 @@ def numerical_grad(f: Callable[[], float], arr: np.ndarray, eps: float = 1e-6) -
     for idx in np.ndindex(arr.shape):
         old = arr[idx]; arr[idx] = old + eps; hi = f(); arr[idx] = old - eps; lo = f(); arr[idx] = old; g[idx] = (hi - lo) / (2 * eps)
     return g
+
+
+# ---------------------------------------------------------------------------------------------
+# Extra layers for Tier 3 batch 2: Dropout (3.28), BatchNorm (3.30), LayerNorm (3.31), RMSNorm (3.32), Residual (3.27)
+# ---------------------------------------------------------------------------------------------
+
+
+class Dropout:
+    """Inverted dropout: zero each unit with probability p in training and scale survivors by 1/(1-p); identity at eval."""
+
+    def __init__(self, p: float = 0.5, seed: int = 0):
+        if not 0 <= p < 1: raise ValueError("p must be in [0, 1)")
+        self.p, self.rng, self.training = p, np.random.default_rng(seed), True
+
+    def forward(self, X):
+        X = np.asarray(X, float)
+        if not self.training or self.p == 0: self.mask = None; return X
+        self.mask = (self.rng.random(X.shape) >= self.p) / (1 - self.p); return X * self.mask
+
+    def backward(self, dY): return dY if self.mask is None else dY * self.mask
+    def params(self): return []
+    def n_params(self): return 0
+
+
+class BatchNorm1d:
+    """Normalize each feature over the batch; learnable scale gamma and shift beta; running statistics for eval."""
+
+    def __init__(self, n: int, eps: float = 1e-5, momentum: float = 0.1):
+        self.gamma, self.beta, self.eps, self.momentum, self.training = np.ones(n), np.zeros(n), eps, momentum, True
+        self.dgamma, self.dbeta = np.zeros(n), np.zeros(n); self.running_mean, self.running_var = np.zeros(n), np.ones(n)
+
+    def forward(self, X):
+        X = np.asarray(X, float)
+        if self.training:
+            mu, var = X.mean(0), X.var(0)                                    # biased variance for normalization
+            n = len(X); self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mu
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var * n / max(n - 1, 1)   # unbiased for the running estimate
+        else: mu, var = self.running_mean, self.running_var
+        self.inv_std = 1 / np.sqrt(var + self.eps); self.xhat = (X - mu) * self.inv_std
+        return self.gamma * self.xhat + self.beta
+
+    def backward(self, dY):
+        self.dgamma, self.dbeta = (dY * self.xhat).sum(0), dY.sum(0); dxh = dY * self.gamma
+        if not self.training: return dxh * self.inv_std
+        n = len(dY); return self.inv_std / n * (n * dxh - dxh.sum(0) - self.xhat * (dxh * self.xhat).sum(0))
+
+    def params(self): return [("gamma", self.gamma, "dgamma"), ("beta", self.beta, "dbeta")]
+    def n_params(self): return self.gamma.size + self.beta.size
+
+
+class LayerNorm:
+    """Normalize each sample over its features (last axis); no batch dependence, no running statistics."""
+
+    def __init__(self, n: int, eps: float = 1e-5):
+        self.gamma, self.beta, self.eps = np.ones(n), np.zeros(n), eps; self.dgamma, self.dbeta = np.zeros(n), np.zeros(n)
+
+    def forward(self, X):
+        X = np.asarray(X, float); mu, var = X.mean(-1, keepdims=True), X.var(-1, keepdims=True)
+        self.inv_std = 1 / np.sqrt(var + self.eps); self.xhat = (X - mu) * self.inv_std; return self.gamma * self.xhat + self.beta
+
+    def backward(self, dY):
+        D = dY.shape[-1]; self.dgamma = (dY * self.xhat).reshape(-1, D).sum(0); self.dbeta = dY.reshape(-1, D).sum(0); dxh = dY * self.gamma
+        return self.inv_std / D * (D * dxh - dxh.sum(-1, keepdims=True) - self.xhat * (dxh * self.xhat).sum(-1, keepdims=True))
+
+    def params(self): return [("gamma", self.gamma, "dgamma"), ("beta", self.beta, "dbeta")]
+    def n_params(self): return self.gamma.size + self.beta.size
+
+
+class RMSNorm:
+    """y = gamma * x / sqrt(mean(x^2) + eps): rescales without subtracting the mean; one parameter vector (no beta)."""
+
+    def __init__(self, n: int, eps: float = 1e-6): self.gamma, self.eps = np.ones(n), eps; self.dgamma = np.zeros(n)
+
+    def forward(self, X):
+        self.X = np.asarray(X, float); self.r = 1 / np.sqrt((self.X**2).mean(-1, keepdims=True) + self.eps); self.xhat = self.X * self.r
+        return self.gamma * self.xhat
+
+    def backward(self, dY):
+        D = dY.shape[-1]; self.dgamma = (dY * self.xhat).reshape(-1, D).sum(0); dxh = dY * self.gamma
+        return self.r * dxh - self.r**3 * self.X / D * (dxh * self.X).sum(-1, keepdims=True)
+
+    def params(self): return [("gamma", self.gamma, "dgamma")]
+    def n_params(self): return self.gamma.size
+
+
+class Sequential:
+    """A list of layers with forward/backward, train/eval mode, parameter access and an SGD step."""
+
+    def __init__(self, layers): self.layers = list(layers)
+
+    def forward(self, X):
+        for l in self.layers: X = l.forward(X)
+        return X
+
+    def backward(self, d):
+        for l in reversed(self.layers): d = l.backward(d)
+        return d
+
+    def set_training(self, flag: bool):
+        for l in self.layers:
+            if hasattr(l, "training"): l.training = flag
+            if isinstance(l, (Sequential, Residual)): l.set_training(flag)
+        return self
+
+    def parameters(self):
+        out = []
+        for l in self.layers: out += l.parameters() if isinstance(l, (Sequential, Residual)) else [(l, n, a, g) for n, a, g in l.params()]
+        return out
+
+    def params(self): return [(n, a, g) for (_, n, a, g) in self.parameters()]
+    def n_params(self): return sum(a.size for _, _, a, _ in self.parameters())
+
+    def step(self, lr: float, weight_decay: float = 0.0):
+        for l, name, arr, g in self.parameters(): arr -= lr * (getattr(l, g) + (weight_decay * arr if name == "W" else 0.0))
+
+
+class Residual:
+    """y = x + f(x): the skip path passes both the signal and the gradient through unchanged."""
+
+    def __init__(self, block: Sequential): self.block = block
+    def forward(self, X): return np.asarray(X, float) + self.block.forward(X)
+    def backward(self, dY): return dY + self.block.backward(dY)
+    def set_training(self, flag): self.block.set_training(flag); return self
+    def parameters(self): return self.block.parameters()
+    def params(self): return []
+    def n_params(self): return self.block.n_params()
+
+
+def build_deep_net(width: int, depth: int, activation: str = "relu", init: str = "he_normal", norm: str | None = None, residual: bool = False,
+                   dropout: float = 0.0, n_out: int | None = None, seed: int = 0) -> Sequential:
+    """`depth` blocks of [Dense -> (norm) -> activation -> (dropout)], optionally wrapped in residual connections, then an output Dense."""
+    rng = np.random.default_rng(seed); layers = []
+    for i in range(depth):
+        blk = [Dense(width, width, init, rng)]
+        if norm == "batch": blk.append(BatchNorm1d(width))
+        elif norm == "layer": blk.append(LayerNorm(width))
+        elif norm == "rms": blk.append(RMSNorm(width))
+        blk.append(Activation(activation))
+        if dropout: blk.append(Dropout(dropout, seed + i))
+        layers.append(Residual(Sequential(blk)) if residual else Sequential(blk))
+    if n_out: layers.append(Dense(width, n_out, init, rng))
+    return Sequential(layers)
+
+
+def global_grad_norm(net) -> float:
+    return float(np.sqrt(sum((getattr(l, g) ** 2).sum() for l, _, _, g in net.parameters())))
+
+
+def clip_grad_norm(net, max_norm: float) -> float:
+    """Rescale all gradients so their global L2 norm is at most max_norm; returns the norm before clipping."""
+    total = global_grad_norm(net)
+    if total > max_norm:
+        s = max_norm / (total + 1e-12)
+        for l, _, _, g in net.parameters(): setattr(l, g, getattr(l, g) * s)
+    return total
