@@ -1,7 +1,7 @@
 import numpy as np, pytest, torch
 import torch.nn.functional as F
 from attention_np import (softmax, causal_mask, padding_mask, sliding_window_mask, scaled_dot_product_attention,
-                          split_heads, merge_heads, MultiHeadAttention as NpMHA, kv_cache_bytes, score_matrix_bytes)
+                          split_heads, merge_heads, tiled_attention, MultiHeadAttention as NpMHA, kv_cache_bytes, score_matrix_bytes)
 from attention_torch import sdpa_manual, MultiHeadAttention as TMHA
 
 R = np.random.default_rng(0)
@@ -138,3 +138,12 @@ def test_mqa_gqa_parameter_and_cache_savings():
     full = kv_cache_bytes(32, 32, 128, 4096); g = kv_cache_bytes(32, 8, 128, 4096)
     assert full == 4 * g == 2 * 32 * 32 * 128 * 4096 * 2
     assert score_matrix_bytes(4096, 32) == 32 * 4096 * 4096 * 2
+
+
+@pytest.mark.parametrize("tile", [1, 3, 4, 16])
+def test_tiled_online_softmax_attention_is_exact(tile):
+    q, k, v = R.normal(size=(9, 8)), R.normal(size=(9, 8)), R.normal(size=(9, 5))
+    ref, _ = scaled_dot_product_attention(q, k, v)
+    assert np.allclose(tiled_attention(q, k, v, tile=tile), ref)
+    ref_c, _ = scaled_dot_product_attention(q, k, v, causal_mask(9))
+    assert np.allclose(tiled_attention(q, k, v, tile=tile, mask=causal_mask(9)), ref_c)

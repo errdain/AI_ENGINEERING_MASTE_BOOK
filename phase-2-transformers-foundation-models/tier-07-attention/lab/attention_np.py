@@ -99,6 +99,26 @@ def score_matrix_bytes(seq_len, n_heads, batch=1, bytes_per=2):
     return batch * n_heads * seq_len * seq_len * bytes_per
 
 
+def tiled_attention(q, k, v, tile: int = 4, mask=None):
+    """FlashAttention-style forward in NumPy: exact attention computed over key tiles with an
+    ONLINE softmax (running max m, running denominator l, running numerator acc) so the full
+    (T,S) score matrix is never stored.  q:(T,D) k:(S,D) v:(S,Dv); mask bool (T,S), True = keep.
+    Teaching code: it shows the algebra, not the on-chip memory behaviour."""
+    t, d = q.shape; s = k.shape[0]
+    m = np.full(t, -np.inf); l = np.zeros(t); acc = np.zeros((t, v.shape[-1]))
+    for lo in range(0, s, tile):
+        sc = (q @ k[lo:lo + tile].T) / np.sqrt(d)                  # (T, tile) scores of this tile only
+        if mask is not None:
+            sc = np.where(mask[:, lo:lo + tile], sc, NEG)
+        m_new = np.maximum(m, sc.max(axis=1))
+        corr = np.exp(m - m_new)                                    # rescale what we accumulated so far
+        p = np.exp(sc - m_new[:, None])
+        l = l * corr + p.sum(axis=1)
+        acc = acc * corr[:, None] + p @ v[lo:lo + tile]
+        m = m_new
+    return acc / l[:, None]
+
+
 if __name__ == "__main__":
     x = np.random.default_rng(1).normal(size=(2, 5, 16))
     mha = MultiHeadAttention(16, 4)

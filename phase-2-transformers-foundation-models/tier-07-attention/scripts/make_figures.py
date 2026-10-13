@@ -10,7 +10,7 @@ from matplotlib.patches import FancyBboxPatch
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lab"))
 from attention_np import (softmax, causal_mask, padding_mask, sliding_window_mask,
-                          scaled_dot_product_attention, kv_cache_bytes, score_matrix_bytes)
+                          scaled_dot_product_attention, kv_cache_bytes, score_matrix_bytes, tiled_attention)
 
 OUT = HERE.parent / "figures"; OUT.mkdir(exist_ok=True)
 C = ["#4C78A8", "#F58518", "#54A24B", "#E45756", "#72B7B2", "#B279A2", "#EECA3B", "#9D755D"]
@@ -224,7 +224,74 @@ def gif_decode_cache():
     ani.save(OUT / "10_decode_kv_cache.gif", writer=PillowWriter(fps=1.2), dpi=60); plt.close(fig)
 
 
+def fig_qkv_projections():
+    """Shapes of X, W_q/W_k/W_v and why projections make attention asymmetric."""
+    r = np.random.default_rng(5); n, e, d = 6, 8, 4
+    X = r.normal(size=(n, e)); Wq, Wk, Wv = [r.normal(size=(e, d)) for _ in range(3)]
+    fig, axs = plt.subplots(1, 3, figsize=(15, 4.2), gridspec_kw={"width_ratios": [1.1, 1.3, 1.3]})
+    ax = axs[0]; ax.axis("off"); ax.set_xlim(0, 10); ax.set_ylim(0, 10)
+    def box(x, y, w, h, t, c):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.05", fc=c, ec="#333", alpha=.85))
+        ax.text(x + w / 2, y + h / 2, t, ha="center", va="center", fontsize=9, color="white", fontweight="bold")
+    box(0.2, 4, 2.2, 2.4, "X\n(T x d_model)", C[0])
+    for y, nm, c in [(7.4, "Q = X W_q\n(T x d_k)", C[3]), (4.3, "K = X W_k\n(S x d_k)", C[1]), (1.2, "V = X W_v\n(S x d_v)", C[2])]:
+        box(6.2, y, 3.4, 2.0, nm, c); ax.annotate("", xy=(6.15, y + 1), xytext=(2.5, 5.2), arrowprops=dict(arrowstyle="->", color="#555"))
+    ax.text(4.2, 8.7, "W_q", fontsize=9); ax.text(4.2, 5.6, "W_k", fontsize=9); ax.text(4.2, 2.3, "W_v", fontsize=9)
+    ax.set_title("1. Three learned linear maps of the same X", fontsize=10)
+    G = X @ X.T; S = (X @ Wq) @ (X @ Wk).T / 3
+    heat(axs[1], G, TOK, TOK, "2. WITHOUT projections: x_i . x_j\n(symmetric: i->j equals j->i)", cmap="RdBu_r", vmin=-8, vmax=8, annot=False)
+    heat(axs[2], S, TOK, TOK, "3. WITH projections: q_i . k_j\n(asymmetric: i->j differs from j->i)", cmap="RdBu_r", vmin=-8, vmax=8, annot=False)
+    for a in axs[1:]: a.set_xlabel("key j"); a.set_ylabel("query i")
+    fig.suptitle("Q/K/V projections (toy random weights, d_model = 8, d_k = 4)", y=1.03, fontweight="bold")
+    fig.tight_layout(); save(fig, "11_qkv_projections.png")
+
+
+def fig_online_softmax():
+    """Tiled / online softmax equals full attention; memory of stored scores."""
+    q, k, v = toy_qkv(n=12, d=8, seed=11); M = causal_mask(12)
+    ref, _ = scaled_dot_product_attention(q, k, v, M)
+    fig, axs = plt.subplots(1, 3, figsize=(15, 4.3))
+    tiles = [1, 2, 3, 4, 6, 12]
+    err = [np.abs(tiled_attention(q, k, v, tile=t, mask=M) - ref).max() for t in tiles]
+    axs[0].bar([str(t) for t in tiles], [max(e_, 1e-17) for e_ in err], color=C[2]); axs[0].set_yscale("log"); axs[0].set_ylim(1e-17, 1e-9)
+    axs[0].set_xlabel("key tile size"); axs[0].set_ylabel("max |tiled - full|  (log)")
+    axs[0].set_title("1. Same answer for every tile size\n(floating-point rounding only)", fontsize=10)
+    # running max / denominator for one query row across 4 tiles
+    i = 11; sc = (q[i] @ k.T) / np.sqrt(8); m = -np.inf; l = 0.0; ms, ls = [], []
+    for lo in range(0, 12, 3):
+        t_ = sc[lo:lo + 3]; mn = max(m, t_.max()); l = l * np.exp(m - mn) + np.exp(t_ - mn).sum(); m = mn; ms.append(m); ls.append(l)
+    ax = axs[1]; ax.plot(range(1, 5), ms, "o-", color=C[0], label="running max m"); ax.set_xlabel("tiles processed (3 keys each)"); ax.set_ylabel("running max m", color=C[0])
+    ax2 = ax.twinx(); ax2.plot(range(1, 5), ls, "s--", color=C[3], label="running denominator l"); ax2.set_ylabel("running denominator l", color=C[3]); ax2.spines["right"].set_visible(True)
+    ax.set_xticks(range(1, 5)); ax.set_title("2. State kept per query row: (m, l, acc)\nrescaled by exp(m_old - m_new) each tile", fontsize=10)
+    ns = np.array([512, 1024, 2048, 4096, 8192, 16384]); naive = ns.astype(float) ** 2 * 2 / 2**20
+    axs[2].loglog(ns, naive, "o-", color=C[3], label="naive: n x n scores, fp16 (MiB per head)")
+    axs[2].loglog(ns, ns * 2 * 2 / 2**20 * 2, "o-", color=C[2], label="tiled: O(n) running stats + output (MiB per head, illustrative)")
+    axs[2].set_xlabel("sequence length n"); axs[2].set_ylabel("extra activation memory (MiB)"); axs[2].legend(fontsize=7, loc="upper left")
+    axs[2].set_title("3. Never storing the n x n matrix", fontsize=10)
+    fig.suptitle("FlashAttention idea: exact attention by tiles with an online softmax (NumPy teaching version from lab/attention_np.py)", y=1.03, fontweight="bold")
+    fig.tight_layout(); save(fig, "12_online_softmax_tiling.png")
+
+
+def fig_cross_attention():
+    """Cross-attention: T x S non-square weights, queries from decoder, keys/values from encoder."""
+    r = np.random.default_rng(2); src = ["Le", "chat", "est", "assis", "."]; tgt = ["The", "cat", "is", "sitting", "down", "."]
+    q = r.normal(size=(6, 8)); k = r.normal(size=(5, 8)); v = r.normal(size=(5, 8))
+    bias = np.zeros((6, 5)); 
+    for a, b in [(0, 0), (1, 1), (2, 2), (3, 3), (4, 3), (5, 4)]: bias[a, b] = 2.5
+    sc = q @ k.T / np.sqrt(8) + bias; w = softmax(sc)
+    fig, axs = plt.subplots(1, 2, figsize=(11, 4.4), gridspec_kw={"width_ratios": [1.1, 1]})
+    heat(axs[0], w, src, tgt, "Cross-attention weights (T=6 target x S=5 source)\nrows sum to 1; matrix is NOT square", vmax=1, fs=8)
+    axs[0].set_xlabel("key j: encoder (source) token"); axs[0].set_ylabel("query i: decoder (target) token")
+    ax = axs[1]; ax.axis("off"); ax.set_xlim(0, 10); ax.set_ylim(0, 10)
+    for x, y, t, c in [(0.3, 6, "Decoder states\n(T x d)  -> Q", C[3]), (0.3, 1.5, "Encoder output\n(S x d)  -> K, V", C[1]), (6.0, 3.8, "Output\n(T x d_v)", C[2])]:
+        ax.add_patch(FancyBboxPatch((x, y), 3.6, 2.2, boxstyle="round,pad=0.05", fc=c, ec="#333", alpha=.85)); ax.text(x + 1.8, y + 1.1, t, ha="center", va="center", color="white", fontsize=9, fontweight="bold")
+    ax.annotate("", xy=(5.9, 5.0), xytext=(3.95, 7.0), arrowprops=dict(arrowstyle="->")); ax.annotate("", xy=(5.9, 4.6), xytext=(3.95, 2.6), arrowprops=dict(arrowstyle="->"))
+    ax.set_title("Output length = query length T;\nsource length S only sets the key axis", fontsize=10)
+    fig.suptitle("Cross-attention shapes (weights hand-biased toward a monotone alignment for illustration; not learned)", y=1.03, fontweight="bold")
+    fig.tight_layout(); save(fig, "13_cross_attention_shapes.png")
+
+
 if __name__ == "__main__":
-    for f in (fig_pipeline, fig_saturation, fig_masks, fig_heads, fig_mqa_gqa, fig_complexity, fig_patterns,
+    for f in (fig_pipeline, fig_saturation, fig_masks, fig_heads, fig_mqa_gqa, fig_complexity, fig_patterns, fig_qkv_projections, fig_online_softmax, fig_cross_attention,
               gif_stepthrough, gif_temperature, gif_decode_cache):
         f(); print("ok", f.__name__)
