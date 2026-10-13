@@ -1,0 +1,6 @@
+numpy>=2.0
+scipy        # erf for exact GELU
+pytest>=8
+torch>=2.6   # used in tests as the reference implementation (tests skip if missing)
+matplotlib>=3.8   # figures only (figures/src)
+pillow>=10        # figures only (GIF writer)

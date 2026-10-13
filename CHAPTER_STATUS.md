@@ -1,19 +1,99 @@
+# CHAPTER STATUS
 
-| Tier | Topic | Author | Critic | Code Review | Final Review | Status |
-|---|---|---|---|---|---|---|
-| 01 | Mathematics | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED |
-| 02 | ML Fundamentals | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED |
-| 03 | Neural Networks | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED |
-| 04 | DL Training | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED |
-| 05 | Sequence Models | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED |
-| 06 | Tokenization | ChatGPT | Claude | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 07 | Attention | ChatGPT | Claude | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 08 | Transformers | ChatGPT | Claude | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 09 | Foundation Model Pretraining | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 10 | Fine-Tuning & Alignment | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 11 | LLM Inference & Optimization | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 12 | Modern Foundation-Model Architectures | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 13 | Vision AI | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 14 | Speech, Audio & Video AI | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 15 | Foundation-Model Evaluation & Safety | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-...
+Source of truth for tier ownership and progress. Curriculum: `ROADMAP_V1.0_FROZEN.md` (FROZEN V1.0, 40 tiers, 7 phases).
+Rules: `BOOK_SPECIFICATION.md`, `AUTHOR_REVIEW_GUIDE.md`, `GLOSSARY.md`.
+
+## Pipeline per tier
+
+Author → Critic → Code Review → Final Review → FINAL
+
+A tier moves forward only when the previous stage is complete and its report is committed on the reviewer's branch.
+A chapter cannot be FINAL until the Book Quality Standard checklist in `BOOK_SPECIFICATION.md` is fully ticked.
+
+## Branches
+
+| Agent | Role | Branch |
+|---|---|---|
+| Claude | Author / Critic | `bgc-10122026` |
+| ChatGPT | Author / Critic / Final Review | `chatgpt-bgc-1012` |
+| Codex | Code Review | `codex-bgc1012` |
+
+Each agent commits only to its own branch. Merge into `main` only after Final Review passes.
+## File layout (one file per concept)
+
+Each tier gets its own folder, and **each concept gets its own `.md` file**. Never one file for a whole tier.
+
+```
+tier-NN-<slug>/
+  NN.CC-<concept-slug>.md     one concept, full 23-part format (e.g. 01.10-dot-product.md)
+  code/                       runnable code + tests for the tier
+  reviews/                    critic.md, code_review.md, final_review.md, author_open_items.md
+  revision_sheet.md           condensed sheet, written after the tier is complete
+```
+
+`CC` is the two-digit concept number from the roadmap, so files sort in curriculum order. Do not renumber concepts.
+
+## Status values
+
+`NOT STARTED` · `IN PROGRESS` · `DRAFT COMPLETE` · `CRITIC DONE` · `CODE REVIEW DONE` · `FINAL REVIEW DONE` · `FINAL`
+
+Code results use only: `TESTED` · `PARTIALLY_TESTED` · `NOT_TESTED`.
+
+## Tier assignments
+
+Source column: **Reference** = the original table (Tiers 1–8); **Proposed** = assigned by Claude from the same pattern (Tiers 9–40), pending owner confirmation.
+Rule used for proposals: author and critic are always different models (Claude ↔ ChatGPT); Codex reviews code for every tier; ChatGPT does Final Review. Claude authors hands-on engineering/agent/architecture tiers; ChatGPT authors model-theory, vision/audio, RAG, evaluation, cloud and data tiers.
+
+| Tier | Phase | Topic | Concepts | Author | Critic | Code Review | Final Review | Status | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| 01 | 1 | Mathematics for AI | 47 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (47 concepts, lab, revision sheet; ready for Critic) | Reference |
+| 02 | 1 | Machine Learning Fundamentals | 51 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (51 concepts, lab, revision sheet; ready for Critic) | Reference |
+| 03 | 1 | Neural Networks | 32 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, revision sheet; ready for Critic) | Reference |
+| 04 | 1 | Deep Learning Training & Optimization | 41 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
+| 05 | 1 | Sequence Models | 27 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
+| 06 | 2 | Tokenization & Embeddings | 32 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Reference |
+| 07 | 2 | Attention | 30 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Reference |
+| 08 | 2 | Transformer Architecture | 30 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Reference |
+| 09 | 2 | Foundation Model Pretraining | 31 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 10 | 2 | Fine-Tuning & Alignment | 35 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 11 | 2 | LLM Inference & Optimization | 47 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 12 | 2 | Modern Foundation-Model Architectures | 30 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 13 | 2 | Vision AI | 32 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 14 | 2 | Speech, Audio & Video AI | 33 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 15 | 2 | Foundation-Model Evaluation & Safety | 35 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 16 | 3 | Raw LLM Engineering & Multi-Provider Systems | 70 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 17 | 3 | Prompt & Context Engineering | 40 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 18 | 3 | Memory Systems | 32 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 19 | 3 | Structured Outputs & Tool Calling | 45 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 20 | 4 | RAG Fundamentals | 52 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 21 | 4 | Advanced RAG | 37 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 22 | 4 | GraphRAG & Agentic RAG | 33 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 23 | 4 | Multimodal AI & Multimodal RAG | 44 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 24 | 5 | LangChain & LlamaIndex | 52 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 25 | 5 | LangGraph & Stateful AI Workflows | 54 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 26 | 5 | AI Agents | 53 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 27 | 5 | Multi-Agent Systems | 54 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 28 | 5 | Model Context Protocol (MCP) | 51 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 29 | 5 | Agent-to-Agent Interoperability | 33 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 30 | 6 | AI System Evaluation | 56 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 31 | 6 | AI Observability & LLMOps | 40 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 32 | 6 | AI Security, Guardrails & Governance | 50 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 33 | 6 | Production AI Backend Engineering | 43 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 34 | 6 | Containers, Testing, CI/CD & Infrastructure as Code | 46 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 35 | 6 | Cloud AI Engineering | 19 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 36 | 6 | AI Performance, Scalability, Reliability & Cost Engineering | 44 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 37 | 7 | AI System Design | 44 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 38 | 7 | AI Data Engineering | 50 | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED | Proposed |
+| 39 | 7 | Enterprise AI Architecture & Design Patterns | 38 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+| 40 | 7 | Enterprise Capstones & Interview Mastery | 20 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
+
+## Progress notes
+
+- Tier 1: all 47 concepts drafted as `tier-01-mathematics/01.01-scalars.md` … `01.47-local-global-minima.md`; lab in `tier-01-mathematics/lab/`; condensed `tier-01-mathematics/revision_sheet.md`. 105 tests passing (77 `code/`, 28 `lab/`; NumPy 2.5.4, torch 2.14.1). Next stage: Critic (ChatGPT) on branch `chatgpt-bgc-1012`.
+- Open proposal: add "number of axes" vs "vector dimension" to `GLOSSARY.md` (needs Critic decision).
+- `AUTHOR_REVIEW_GUIDE.md` refers to `ROADMAP.md`; the file is `ROADMAP_V1.0_FROZEN.md`.
+- Tier 2: all 51 concepts drafted in `tier-02-ml-fundamentals/` (one file each); `code/mlkit.py` + `lab/` parts 1–4 with `lab/README.md`; run `python -m pytest -q code lab` (83 tests). PROPOSE_ADDITION raised in `tier-02-ml-fundamentals/reviews/author_open_items.md`: Tier 1 refers to PCA, Naive Bayes, decision trees and named regression models that are not in the frozen Tier 2 list; duplication 2.45/2.50 flagged. Condensed `tier-02-ml-fundamentals/revision_sheet.md` added. Next stage: Critic (ChatGPT) on branch `chatgpt-bgc-1012`.
+- Tier 3: all 32 concepts drafted in `tier-03-neural-networks/` (one file each); NumPy library `code/nn.py` + `code/autodiff.py` checked against PyTorch; `lab/` parts 1–3 incl. the PyTorch rebuild; `lab/README.md`; run `python -m pytest -q code lab` (64 tests). Condensed `tier-03-neural-networks/revision_sheet.md` added. Next stage: Critic (ChatGPT) on branch `chatgpt-bgc-1012`.
+- Tier 4: all 41 concepts drafted in `tier-04-training-optimization/` in the learner-first layout (4 figures, `code/pipeline.py` training pipeline + profiler, 16 tests, revision sheet). Next stage: Critic (ChatGPT).
+- Learner-first rewrite (plain-words box, glossary, worked example, three-step code ladder with executed outputs, collapsed advanced sections): Tier 1 (47), Tier 2 (51) and Tier 3 (32) done; all code blocks run under `tests/test_md_snippets.py`. Tier 4 onward is written in this layout from the start.
+- Figures: conventions in `figures-common/README.md` and `BOOK_SPECIFICATION.md` (FIGURE RULE). Rolled out so far: Tier 1 (24 figures), Tier 2 (21), Tier 3 (19 figures), each embedded in its concept file with label, alt text and a *How to read it* paragraph; tables in `tier-NN-*/figures/README.md`; regenerate with `tier-NN-*/figures/src/make_all.py`. Next: review on GitHub; later tiers get figures as they are written.
