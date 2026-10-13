@@ -163,6 +163,45 @@ def fig_vocab_tradeoff():
     fig.savefig(OUT / "07_vocab_size_tradeoff.png"); plt.close(fig)
 
 
+def fig_unicode_bytes():
+    import unicodedata
+    fig, axs = plt.subplots(1, 3, figsize=(15, 4.4))
+    chars = ["a", "é", "ह", "日", "🙂"]
+    nb = [len(c.encode()) for c in chars]
+    axs[0].bar(["a\n(ASCII)", "e-acute\n(Latin)", "Hindi\nletter", "CJK\nideograph", "emoji"], nb, color=C[:5]); axs[0].set_ylabel("UTF-8 bytes"); axs[0].set_xlabel("character class")
+    axs[0].set_title("Bytes per character in UTF-8"); axs[0].set_yticks([1, 2, 3, 4])
+    forms = ["NFC", "NFD", "NFKC"]; samples = {"café": "caf\u00e9", "ﬁne": "\ufb01ne"}
+    w = .35
+    for k, (name, s) in enumerate([("'caf\u00e9' typed as e-acute", "caf\u00e9"), ("'caf' + e + U+0301", "cafe\u0301")]):
+        axs[1].bar(np.arange(3) + k * w, [len(unicodedata.normalize(f, s)) for f in forms], w, color=C[k], label=name)
+    axs[1].set_xticks(np.arange(3) + w / 2); axs[1].set_xticklabels(forms); axs[1].set_ylabel("code points")
+    axs[1].set_title("Same visible word, different code points\n(NFC/NFKC make them equal)"); axs[1].legend(fontsize=8, loc="upper left"); axs[1].set_ylim(0, 7)
+    train = "the quick brown fox jumps over the lazy dog and the cat sat on the mat " * 30
+    tok = ByteBPE.train(train, 60)
+    texts = {"English": "the dog sat on the mat", "French": "le chien \u00e9tait fatigu\u00e9", "Hindi": "\u0915\u0941\u0924\u094d\u0924\u093e \u091a\u091f\u093e\u0908 \u092a\u0930 \u092c\u0948\u0920\u093e", "Japanese": "\u72ac\u306f\u30de\u30c3\u30c8\u306e\u4e0a\u306b\u5ea7\u3063\u305f"}
+    tpc = [len(tok.encode(t)) / len(t) for t in texts.values()]
+    axs[2].bar(list(texts), tpc, color=C[2:6]); axs[2].set_ylabel("tokens per character (lower = better)")
+    axs[2].set_title("Toy BPE trained on English only (60 merges)\nmeasured with lab/mini_bpe.py"); axs[2].set_xlabel("test sentence language")
+    fig.savefig(OUT / "08_unicode_bytes_and_fertility.png"); plt.close(fig)
+
+
+def fig_special_tokens():
+    seqs = [["The", "cat", "sat"], ["Hello", "world", "how", "are", "you"], ["Hi"]]
+    L = max(len(s) for s in seqs) + 2
+    fig, axs = plt.subplots(1, 2, figsize=(14, 3.8), gridspec_kw={"width_ratios": [1.6, 1]})
+    ax = axs[0]; ax.axis("off"); col = {"<BOS>": C[2], "<EOS>": C[3], "<PAD>": "#999999"}
+    mask = np.zeros((3, L), int)
+    for r, s in enumerate(seqs):
+        row = ["<BOS>"] + s + ["<EOS>"]; mask[r, :len(row)] = 1; row += ["<PAD>"] * (L - len(row))
+        for c, t in enumerate(row):
+            ax.add_patch(FancyBboxPatch((c * 1.25, 2 - r), 1.15, .8, boxstyle="round,pad=0.02", fc=col.get(t, C[0]), ec="white"))
+            ax.text(c * 1.25 + .575, 2 - r + .4, t, ha="center", va="center", color="white", fontsize=9, weight="bold")
+    ax.set_xlim(-.2, L * 1.25); ax.set_ylim(-.2, 3); ax.set_title("A padded batch: BOS + tokens + EOS, then PAD to a rectangle (right padding)", loc="left", fontsize=10)
+    axs[1].imshow(mask, cmap="Greens", aspect="auto"); axs[1].set_title("Attention (padding) mask: 1 = real, 0 = PAD")
+    axs[1].set_yticks(range(3)); axs[1].set_yticklabels(["seq A", "seq B", "seq C"]); axs[1].set_xlabel("position")
+    fig.savefig(OUT / "09_special_tokens_and_padding.png"); plt.close(fig)
+
+
 if __name__ == "__main__":
-    for f in (fig_granularity, fig_bpe_gif, fig_embedding_lookup, fig_positional, fig_rope_gif, fig_alibi_masks, fig_vocab_tradeoff):
+    for f in (fig_granularity, fig_bpe_gif, fig_embedding_lookup, fig_positional, fig_rope_gif, fig_alibi_masks, fig_vocab_tradeoff, fig_unicode_bytes, fig_special_tokens):
         f(); print("ok", f.__name__)

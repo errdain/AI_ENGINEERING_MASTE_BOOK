@@ -72,3 +72,35 @@ def test_embedding_and_mask():
     t = np.arange(12.0).reshape(4, 3)
     assert np.array_equal(embedding_lookup(t, [2, 0]), t[[2, 0]])
     assert padding_mask([2, 4]).tolist() == [[1, 1, 0, 0], [1, 1, 1, 1]]
+
+
+# ---- tokenizer_extras.py ----------------------------------------------------
+from tokenizer_extras import (batch_pad, fertility, normalize, split_digits,
+                              tokens_per_char, unigram_segment, wordpiece_encode)
+
+
+def test_wordpiece_greedy_and_unk():
+    vocab = {"un", "##happi", "##ness", "##happy", "happy"}
+    assert wordpiece_encode("unhappiness", vocab) == ["un", "##happi", "##ness"]
+    assert wordpiece_encode("unzzz", vocab) == ["[UNK]"]
+
+
+def test_unigram_viterbi_prefers_likely_segmentation():
+    import math
+    lp = {"a": math.log(.1), "b": math.log(.1), "ab": math.log(.5), "abab": math.log(.01)}
+    assert unigram_segment("abab", lp) == ["ab", "ab"]
+    assert unigram_segment("abc", lp) == []
+
+
+def test_normalization_and_digits():
+    assert normalize("café") == "café"
+    assert normalize("ﬁ", "NFKC") == "fi" and normalize("ﬁ", "NFC") == "ﬁ"
+    assert split_digits("ab123c") == ["ab", "1", "2", "3", "c"]
+
+
+def test_batch_pad_and_metrics():
+    ids, mask = batch_pad([[7, 8], [9]], bos=1, eos=2, pad=0)
+    assert ids.tolist() == [[1, 7, 8, 2], [1, 9, 2, 0]] and mask.tolist() == [[1, 1, 1, 1], [1, 1, 1, 0]]
+    ids, _ = batch_pad([[7, 8], [9]], 1, 2, 0, side="left")
+    assert ids.tolist()[1] == [0, 1, 9, 2]
+    assert tokens_per_char(5, "abcdefghij") == 0.5 and fertility(6, "a b c") == 2.0
