@@ -19,5 +19,6 @@ Every tier folder contains:
 | 10 | [Fine-Tuning & Alignment](tier-10-fine-tuning-alignment/README.md) | AUTHOR_DRAFT |
 | 11 | [LLM Inference & Optimization](tier-11-llm-inference-optimization/README.md) | AUTHOR_DRAFT |
 | 12 | [Modern Foundation-Model Architectures](tier-12-modern-architectures/README.md) | AUTHOR_DRAFT |
+| 13 | [Vision AI](tier-13-vision-ai/README.md) | AUTHOR_DRAFT |
 
 Smoke-test all interactive pages: `python tools/check_interactive.py phase-2-transformers-foundation-models`.
