@@ -14,3 +14,15 @@
 - REVIEW_REQUIRED: 1.19 §16 claim about low-rank structure aiding extraction/membership attacks needs a literature citation.
 - REVIEW_REQUIRED: 1.11 §10 "≈2×parameters FLOPs/token" holds for the dense forward pass only (excludes attention score cost and MoE sparsity).
 - Matmul ordering example in 1.11 (`(x@W1)@W2` vs `x@(W1@W2)`) is explained by operation count, not benchmarked.
+
+## Batch 3 (1.20–1.31)
+
+- TESTED: `code/calculus_prob.py`, 22 new tests in `test_calculus_prob.py` (52 total, NumPy 2.5.4). Includes gradient checking of the manual backprop in 1.25.
+- NOT_TESTED: the PyTorch autograd comment in 1.25 (torch not installed).
+- NOT_TESTED: exercises in 1.20–1.31 are described but not shipped as code; planned for the Tier 1 lab.
+- Forward references to undrafted concepts: 1.32 Covariance, 1.33 Conditional probability, 1.34 Bayes, 1.35 MLE, 1.36 Entropy, 1.37 Cross-entropy, 1.39–1.44 numerical topics, 1.45–1.47 landscapes; Tier 2, 3, 4, 15, 16, 30. Critic should confirm they match the frozen roadmap.
+- Terminology to approve: "i.i.d.", "vector–Jacobian product (VJP)", "calibration" are introduced; none are in `GLOSSARY.md`.
+- REVIEW_REQUIRED: 1.30 default `ddof`/`correction` values for NumPy, pandas and PyTorch are stated from memory; verify against current docs.
+- REVIEW_REQUIRED: 1.23 "saddle points far more common than bad local minima in high-dimensional nets" is a widely cited empirical/theoretical claim; add a citation.
+- REVIEW_REQUIRED: 1.27 note that GPU runs aren't bitwise reproducible across devices; verify wording.
+- Note: `np.trapezoid` used in tests requires NumPy ≥ 2.0.
