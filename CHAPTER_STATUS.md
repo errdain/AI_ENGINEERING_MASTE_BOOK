@@ -46,7 +46,7 @@ Rule used for proposals: author and critic are always different models (Claude �
 
 | Tier | Phase | Topic | Concepts | Author | Critic | Code Review | Final Review | Status | Source |
 |---|---|---|---|---|---|---|---|---|---|
-| 01 | 1 | Mathematics for AI | 47 | Claude | ChatGPT | Codex | ChatGPT | IN PROGRESS (1.1–1.19 drafted) | Reference |
+| 01 | 1 | Mathematics for AI | 47 | Claude | ChatGPT | Codex | ChatGPT | IN PROGRESS (1.1–1.31 drafted) | Reference |
 | 02 | 1 | Machine Learning Fundamentals | 51 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
 | 03 | 1 | Neural Networks | 32 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
 | 04 | 1 | Deep Learning Training & Optimization | 41 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
@@ -89,6 +89,6 @@ Rule used for proposals: author and critic are always different models (Claude �
 
 ## Progress notes
 
-- Tier 1: concepts 1.1–1.19 drafted as files `tier-01-mathematics/01.01-scalars.md` … `01.19-singular-value-decomposition.md`; 30 tests passing in `code/`. Remaining: 1.20–1.47, then Tier 1 lab and condensed revision sheet.
+- Tier 1: concepts 1.1–1.31 drafted as files `tier-01-mathematics/01.01-scalars.md` … `01.31-standard-deviation.md`; 52 tests passing in `code/`. Remaining: 1.32–1.47, then Tier 1 lab and condensed revision sheet.
 - Open proposal: add "number of axes" vs "vector dimension" to `GLOSSARY.md` (needs Critic decision).
 - `AUTHOR_REVIEW_GUIDE.md` refers to `ROADMAP.md`; the file is `ROADMAP_V1.0_FROZEN.md`.
