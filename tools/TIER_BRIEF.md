@@ -2,10 +2,10 @@
 
 Repo: /home/user/AI_ENGINEERING_MASTE_BOOK. Read first: BOOK_SPECIFICATION.md, AUTHOR_REVIEW_GUIDE.md, GLOSSARY.md,
 the roadmap section for YOUR tier in ROADMAP_V1.0_FROZEN.md (do NOT change/renumber concepts), and the finished template
-phase-2-transformers-foundation-models/tier-06-tokenization-embeddings/ (README.md, scripts/make_figures.py, interactive/*.html, lab/).
+tier-06-tokenization-embeddings/ (README.md, NN.CC-*.md concept files, figures/src/make_figures.py, interactive/*.html, lab/).
 Match that template's structure, tone, depth and quality.
 
-Deliver ONLY inside your tier folder: phase-2-transformers-foundation-models/tier-XX-<slug>/
+Deliver ONLY inside your tier folder: tier-XX-<slug>/ at the repository root (concept files NN.CC-slug.md directly inside; figure scripts in figures/src/)
   README.md            chapter: header+status, "how to use" table (read/see/play/build), big picture, concept map table
                        (EVERY roadmap item -> section), concept sections following the 23-section standard (compress for small
                        concepts, full for major ones: what/why/how/example/code/enterprise/AI-connection/trade-offs/mistakes/
