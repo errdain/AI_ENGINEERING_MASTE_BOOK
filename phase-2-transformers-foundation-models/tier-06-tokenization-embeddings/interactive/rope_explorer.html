@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RoPE Explorer — Tier 6</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}textarea{width:100%;min-height:70px;background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:6px;font:13px monospace}.tok{display:inline-block;padding:2px 6px;margin:2px;border-radius:5px;color:#fff;font:13px monospace}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid)}</style></head><body>
+<h1>RoPE: rotation encodes <em>relative</em> position</h1><p class="sub">A query at position m and a key at position n are each rotated by (position × frequency). Their dot product depends only on m − n. Slide m and n together and watch the score stay fixed.</p>
+<div class="card">
+<label><span class="n">query position m</span><input id="m" type="range" min="0" max="64" value="10"><b class="v" id="mv"></b></label>
+<label><span class="n">key position n</span><input id="n" type="range" min="0" max="64" value="7"><b class="v" id="nv"></b></label>
+<label><span class="n">base θ</span><input id="b" type="range" min="100" max="100000" step="100" value="10000"><b class="v" id="bv"></b></label>
+<label><span class="n">head dim (pairs shown)</span><input id="d" type="range" min="2" max="8" value="4"><b class="v" id="dv"></b></label>
+<label><span class="n">shift both by</span><input id="s" type="range" min="0" max="40" value="0"><b class="v" id="sv"></b></label></div>
+<div class="card"><canvas id="c" width="900" height="260"></canvas><div id="r" class="note"></div></div>
+<script>
+const $=i=>document.getElementById(i);const q0=Array.from({length:16},(_,i)=>Math.sin(i*1.7+.3)),k0=Array.from({length:16},(_,i)=>Math.cos(i*1.3+.9));
+function rot(v,pos,D,b){const o=[];for(let i=0;i<D;i++){const a=pos*Math.pow(b,-2*i/(2*D)),x=v[2*i],y=v[2*i+1];o.push(x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a))}return o}
+function run(){const m0=+$("m").value,n0=+$("n").value,s=+$("s").value,m=m0+s,n=n0+s,b=+$("b").value,D=+$("d").value;
+ ["m","n","b","d","s"].forEach(i=>$(i+"v").textContent=$(i).value);
+ const q=rot(q0,m,D,b),k=rot(k0,n,D,b),dot=q.reduce((a,v,i)=>a+v*k[i],0),c=$("c"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);
+ const W=c.width/D;for(let i=0;i<D;i++){const cx=W*i+W/2,cy=130,R=Math.min(W/2-10,100);
+  g.strokeStyle="#99a";g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
+  [[q,"#4C78A8"],[k,"#F58518"]].forEach(([v,cl])=>{g.strokeStyle=cl;g.lineWidth=3;g.beginPath();g.moveTo(cx,cy);g.lineTo(cx+R*v[2*i],cy-R*v[2*i+1]);g.stroke()});
+  g.fillStyle="#889";g.font="12px sans-serif";g.fillText("pair "+i+" θ="+Math.pow(b,-2*i/(2*D)).toFixed(3),cx-40,18)}
+ g.fillStyle="#4C78A8";g.fillText("■ query",10,250);g.fillStyle="#F58518";g.fillText("■ key",80,250);
+ $("r").innerHTML="Positions used: m="+m+", n="+n+" → relative distance m−n = <b>"+(m-n)+"</b>. Score q·k = <b>"+dot.toFixed(4)+"</b>. Move 'shift both by' — the score does not change."}
+["m","n","b","d","s"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>

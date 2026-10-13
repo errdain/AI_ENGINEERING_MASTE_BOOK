@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vocabulary Size Trade-off — Tier 6</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}textarea{width:100%;min-height:70px;background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:6px;font:13px monospace}.tok{display:inline-block;padding:2px 6px;margin:2px;border-radius:5px;color:#fff;font:13px monospace}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid)}</style></head><body>
+<h1>Vocabulary-size trade-off calculator</h1><p class="sub">Embedding params = V·d (×2 if the output head is untied). Larger V compresses text (fewer tokens, cheaper attention) but enlarges the softmax and embedding. Compression model: bytes/token ≈ a·log₁₀(V)^p — an <b>illustrative assumption</b>, not a measurement.</p>
+<div class="card">
+<label><span class="n">vocab size V</span><input id="v" type="range" min="1000" max="400000" step="1000" value="32000"><b class="v" id="vv"></b></label>
+<label><span class="n">d_model</span><input id="d" type="range" min="256" max="16384" step="256" value="4096"><b class="v" id="dv"></b></label>
+<label><span class="n">document length (bytes)</span><input id="L" type="range" min="1000" max="1000000" step="1000" value="100000"><b class="v" id="Lv"></b></label>
+<label><span class="n">tie input/output embeddings</span><input id="t" type="checkbox" checked></label></div>
+<div class="card"><table id="tb"></table></div><div class="card"><canvas id="c" width="900" height="300"></canvas></div>
+<script>
+const $=i=>document.getElementById(i);const bpt=V=>0.55*Math.pow(Math.log10(V),2.2); // bytes per token (assumption)
+function run(){const V=+$("v").value,d=+$("d").value,L=+$("L").value,tie=$("t").checked;
+ $("vv").textContent=V;$("dv").textContent=d;$("Lv").textContent=L;
+ const toks=L/bpt(V),emb=V*d*(tie?1:2),attn=toks*toks;
+ $("tb").innerHTML="<tr><th>bytes / token</th><td>"+bpt(V).toFixed(2)+"</td></tr><tr><th>tokens in document</th><td>"+Math.round(toks).toLocaleString()+"</td></tr><tr><th>embedding(+head) params</th><td>"+(emb/1e6).toFixed(0)+" M</td></tr><tr><th>embedding memory fp16</th><td>"+(emb*2/1e9).toFixed(2)+" GB</td></tr><tr><th>attention score entries (n²)</th><td>"+(attn/1e6).toFixed(1)+" M</td></tr>";
+ const c=$("c"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);const xs=x=>40+(Math.log10(x)-3)/(Math.log10(4e5)-3)*(c.width-60);
+ const Vs=[];for(let x=1000;x<=4e5;x*=1.05)Vs.push(x);
+ const sMax=L/bpt(1000),eMax=4e5*d*(tie?1:2);
+ g.lineWidth=3;[["#4C78A8",x=>L/bpt(x)/sMax],["#F58518",x=>x*d*(tie?1:2)/eMax]].forEach(([cl,f])=>{g.strokeStyle=cl;g.beginPath();Vs.forEach((x,i)=>{const y=270-f(x)*250;i?g.lineTo(xs(x),y):g.moveTo(xs(x),y)});g.stroke()});
+ g.strokeStyle="#E45756";g.setLineDash([4,4]);g.beginPath();g.moveTo(xs(V),10);g.lineTo(xs(V),270);g.stroke();g.setLineDash([]);
+ g.fillStyle="#4C78A8";g.font="13px sans-serif";g.fillText("sequence length (normalised) ↓ as V grows",50,24);g.fillStyle="#F58518";g.fillText("embedding params ↑ with V",50,44);g.fillStyle="#889";g.fillText("log V →",c.width-70,292)}
+["v","d","L","t"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>

@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Positional Encoding Explorer — Tier 6</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}textarea{width:100%;min-height:70px;background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:6px;font:13px monospace}.tok{display:inline-block;padding:2px 6px;margin:2px;border-radius:5px;color:#fff;font:13px monospace}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid)}</style></head><body>
+<h1>Sinusoidal positional encoding explorer</h1><p class="sub">Heatmap of PE[pos, dim]. Change the model width, number of positions and the base (10000 in the paper) — a larger base stretches wavelengths for longer contexts.</p>
+<div class="card">
+<label><span class="n">d_model</span><input id="d" type="range" min="8" max="128" step="2" value="64"><b class="v" id="dv"></b></label>
+<label><span class="n">positions shown</span><input id="n" type="range" min="8" max="128" value="64"><b class="v" id="nv"></b></label>
+<label><span class="n">base</span><input id="b" type="range" min="100" max="100000" step="100" value="10000"><b class="v" id="bv"></b></label>
+<label><span class="n">query position p</span><input id="p" type="range" min="0" max="127" value="20"><b class="v" id="pv"></b></label></div>
+<div class="card"><b>PE heatmap</b> <span class="note">(x = dimension, y = position; red +1, blue −1)</span><canvas id="hm" width="900" height="360"></canvas></div>
+<div class="card"><b>Similarity of PE[p] with every other position</b> <span class="note" id="sn"></span><canvas id="sim" width="900" height="200"></canvas></div>
+<script>
+const $=i=>document.getElementById(i);
+function pe(n,d,b){const o=[];for(let p=0;p<n;p++){const r=[];for(let i=0;i<d;i++){const k=Math.floor(i/2),f=Math.pow(b,-2*k/d);r.push(i%2?Math.cos(p*f):Math.sin(p*f))}o.push(r)}return o}
+function col(v){const t=(v+1)/2;return "rgb("+Math.round(40+215*t)+","+Math.round(60+60*(1-Math.abs(2*t-1)))+","+Math.round(255-215*t)+")"}
+function run(){const d=+$("d").value,n=+$("n").value,b=+$("b").value,p=Math.min(+$("p").value,n-1);
+ $("dv").textContent=d;$("nv").textContent=n;$("bv").textContent=b;$("pv").textContent=p;
+ const M=pe(n,d,b),c=$("hm"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);const w=c.width/d,h=c.height/n;
+ for(let y=0;y<n;y++)for(let x=0;x<d;x++){g.fillStyle=col(M[y][x]);g.fillRect(x*w,y*h,w+.5,h+.5)}
+ g.strokeStyle="#000";g.lineWidth=2;g.strokeRect(0,p*h,c.width,h);
+ const s=M.map(r=>r.reduce((a,v,i)=>a+v*M[p][i],0)/d),c2=$("sim"),g2=c2.getContext("2d");g2.clearRect(0,0,c2.width,c2.height);
+ const bw=c2.width/n;s.forEach((v,j)=>{const hh=Math.max(0,v)*c2.height*.95;g2.fillStyle=j===p?"#E45756":"#4C78A8";g2.fillRect(j*bw,c2.height-hh,bw-1,hh)});
+ $("sn").textContent="— similarity is highest at p and decays with |j−p|; the slowest dims keep far positions distinguishable"}
+["d","n","b","p"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>

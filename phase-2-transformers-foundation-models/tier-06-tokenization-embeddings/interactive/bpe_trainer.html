@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BPE Trainer — Tier 6</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}textarea{width:100%;min-height:70px;background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:6px;font:13px monospace}.tok{display:inline-block;padding:2px 6px;margin:2px;border-radius:5px;color:#fff;font:13px monospace}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid)}</style></head><body>
+<h1>BPE trainer (interactive)</h1><p class="sub">Edit the training text, drag the slider to add merges, and watch tokens fuse. Colours = distinct tokens.</p>
+<div class="card"><textarea id="corpus">low low low low low lower lower newest newest newest newest newest newest widest widest widest</textarea>
+<label><span class="n">Number of merges</span><input id="m" type="range" min="0" max="40" value="8"><b class="v" id="mv"></b></label>
+<label><span class="n">Text to tokenize</span><input id="probe" style="flex:1;padding:4px" value="lowest newer"></label></div>
+<div class="card"><b>Tokenized text</b> <span class="note" id="stats"></span><div id="out"></div></div>
+<div class="card"><b>Learned merges (in priority order)</b><div id="merges" class="note" style="font-family:monospace"></div></div>
+<script>
+const $=i=>document.getElementById(i),PAL=["#4C78A8","#F58518","#54A24B","#E45756","#72B7B2","#B279A2","#c9a700","#9D755D"];
+const pre=t=>{const o=[];let c="";for(const ch of t){if(/\s/.test(ch)&&c&&!/\s/.test(c.slice(-1))){o.push(c);c=ch}else c+=ch}if(c)o.push(c);return o};
+const bytes=s=>Array.from(new TextEncoder().encode(s)).map(b=>String.fromCharCode(b)); // latin1-style symbols
+function merge(seq,a,b){const o=[];for(let i=0;i<seq.length;i++){if(i<seq.length-1&&seq[i]===a&&seq[i+1]===b){o.push(a+b);i++}else o.push(seq[i])}return o}
+function train(text,n){const freq=new Map();pre(text).forEach(w=>freq.set(w,(freq.get(w)||0)+1));
+ let seqs=[...freq.keys()].map(w=>bytes(w)),wt=[...freq.values()],merges=[];
+ for(let k=0;k<n;k++){const c=new Map();seqs.forEach((s,i)=>{for(let j=0;j<s.length-1;j++){const key=s[j]+"\u0001"+s[j+1];c.set(key,(c.get(key)||0)+wt[i])}});
+  let best=null,bc=1;for(const [key,v] of c)if(v>bc||(v===bc&&best&&key<best)){best=key;bc=v}
+  if(!best)break;const [a,b]=best.split("\u0001");merges.push([a,b,bc]);seqs=seqs.map(s=>merge(s,a,b))}
+ return merges}
+function enc(w,merges){let s=bytes(w);for(const [a,b] of merges)s=merge(s,a,b);return s}
+const show=s=>s.replace(/ /g,"␣");
+function run(){const n=+$("m").value;$("mv").textContent=n;const merges=train($("corpus").value,n);
+ const probe=$("probe").value;let toks=[];pre(probe).forEach(w=>toks.push(...enc(w,merges)));
+ const ids=new Map();$("out").innerHTML=toks.map(t=>{if(!ids.has(t))ids.set(t,ids.size);return '<span class="tok" style="background:'+PAL[ids.get(t)%8]+'">'+show(t)+'</span>'}).join("");
+ $("stats").textContent=" — "+toks.length+" tokens for "+new TextEncoder().encode(probe).length+" bytes";
+ $("merges").innerHTML=merges.map((m,i)=>(i+1)+". "+show(m[0])+" + "+show(m[1])+" → <b>"+show(m[0]+m[1])+"</b> (×"+m[2]+")").join("<br>")||"(none — pure bytes)"}
+["corpus","m","probe"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>

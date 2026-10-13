@@ -1,0 +1,17 @@
+# Phase 2 — Transformers & Foundation Models
+
+Every tier folder contains:
+
+| Folder/file | Purpose |
+|---|---|
+| `README.md` | the chapter (theory → mechanics → code → enterprise → interview) |
+| `figures/` | labelled PNGs and animated GIFs (regenerate with `scripts/make_figures.py`) |
+| `interactive/` | self-contained HTML explorers with sliders — open in any browser, no install |
+| `lab/` | runnable Python + pytest tests for the tier's "Build" item |
+| `scripts/` | figure generators |
+
+| Tier | Topic | Status |
+|---|---|---|
+| 06 | [Tokenization & Embeddings](tier-06-tokenization-embeddings/README.md) | AUTHOR_DRAFT |
+
+Smoke-test all interactive pages: `python tools/check_interactive.py phase-2-transformers-foundation-models`.
