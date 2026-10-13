@@ -32,7 +32,7 @@ Author's handling for now: Tier 2 uses linear regression, logistic regression an
 
 ## Batch 2 (2.14–2.25)
 
-- TESTED: `lab/lab_02_models_and_training.py` (19 tests in `lab/test_lab_02_models_and_training.py`). Silhouette implementation checked against scikit-learn. Whole tier so far: 32 `code/` + 28 `lab/` = 60 tests.
+- TESTED: `lab/lab_02_models_and_training.py` (10 tests in `lab/test_lab_02_models_and_training.py`). Silhouette implementation checked against scikit-learn. Whole tier so far: 32 `code/` + 19 `lab/` (9 + 10) = 51 tests.
 - Numbers in the text come from fixed seeds on NumPy 2.5.4; tests assert directions/thresholds.
 - DUPLICATION to adjudicate (roadmap lists both): SGD = 2.20 and 4.6; batch size = 2.21/2.23 and 4.13; training loop vocabulary (epoch/iteration) vs 4.1; loss definition 2.17 vs 4.3; learning rate 2.25 vs LR scheduling 4.10. Author handling: Tier 2 is the conceptual and NumPy-mechanics authority; each file points to the Tier 4 concept for PyTorch/engineering detail.
 - TIER 1 CROSS-REFERENCES to fix after Critic review: Tier 1 files say "Tier 4 Loss functions" and "Tier 4 SGD/Optimizers"; the loss definition is authoritative in 2.17 (Tier 4 only has 4.3 Loss calculation). Also see the PROPOSE_ADDITION above.
