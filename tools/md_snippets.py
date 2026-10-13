@@ -26,6 +26,19 @@ import sys
 PAIR = re.compile(r"```python\n(?P<code>.*?)\n```\n\n```text\n(?P<out>.*?)\n?```", re.S)
 
 
+NUM = re.compile(r"-?\d+\.?\d*(?:[eE][-+]?\d+)?")
+
+
+def same_output(expected: str, actual: str, rtol: float = 0.03, atol: float = 2e-3) -> bool:
+    """Equal text, with numbers allowed to differ slightly (other CPUs/BLAS/library versions round differently)."""
+    if expected == actual:
+        return True
+    if NUM.sub("#", expected) != NUM.sub("#", actual):
+        return False
+    a, b = [float(x) for x in NUM.findall(expected)], [float(x) for x in NUM.findall(actual)]
+    return len(a) == len(b) and all(abs(x - y) <= atol + rtol * max(abs(x), abs(y)) for x, y in zip(a, b))
+
+
 def run(code: str, cwd: pathlib.Path) -> str:
     p = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, timeout=120, cwd=cwd)
     if p.returncode != 0:
@@ -37,8 +50,8 @@ def process(path: pathlib.Path, fill: bool) -> list[str]:
     text = path.read_text(); problems: list[str] = []; out: list[str] = []; last = 0
     for m in PAIR.finditer(text):
         actual = run(m.group("code"), path.parent)
-        if actual != m.group("out").rstrip("\n"):
-            problems.append(f"{path}: output differs for block starting {m.group('code').splitlines()[0]!r}")
+        if not same_output(m.group("out").rstrip("\n"), actual):
+            problems.append(f"{path}: output differs for block starting {m.group('code').splitlines()[0]!r}\n--- page ---\n{m.group('out')}\n--- actual ---\n{actual}")
         out.append(text[last:m.start()]); out.append(f"```python\n{m.group('code')}\n```\n\n```text\n{actual}\n```"); last = m.end()
     out.append(text[last:])
     if fill and problems: path.write_text("".join(out))
