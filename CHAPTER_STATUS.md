@@ -89,6 +89,6 @@ Rule used for proposals: author and critic are always different models (Claude �
 
 ## Progress notes
 
-- Tier 1: concepts 1.1–1.19 drafted as files `tier-01-mathematics/01.01-scalars.md` … `01.19-singular-value-decomposition.md`; 41 tests passing in `code/`. Remaining: 1.20–1.47, then Tier 1 lab and condensed revision sheet.
+- Tier 1: concepts 1.1–1.19 drafted as files `tier-01-mathematics/01.01-scalars.md` … `01.19-singular-value-decomposition.md`; 30 tests passing in `code/`. Remaining: 1.20–1.47, then Tier 1 lab and condensed revision sheet.
 - Open proposal: add "number of axes" vs "vector dimension" to `GLOSSARY.md` (needs Critic decision).
 - `AUTHOR_REVIEW_GUIDE.md` refers to `ROADMAP.md`; the file is `ROADMAP_V1.0_FROZEN.md`.

@@ -8,7 +8,7 @@
 
 ## Batch 2 (1.11–1.19)
 
-- TESTED: all code in `code/linalg_core.py` (30 tests in `test_linalg_core.py`; 41 total with batch 1). NumPy 2.5.4.
+- TESTED: all code in `code/linalg_core.py` (19 tests in `test_linalg_core.py`; 30 total with batch 1). NumPy 2.5.4.
 - NOT_TESTED: exercises in 1.15 (global-norm clipping), 1.16 (distance concentration), 1.17 (ranking comparison), 1.18 (PCA axes), 1.19 (image rank) are described but not shipped as code; planned for the Tier 1 lab.
 - Forward references to concepts not yet drafted: 1.32 Covariance, 1.40 Floating-point precision, 1.46 Optimization landscapes; Tier 2 PCA, Tier 5 RNN gradients, Tier 10 LoRA. Critic should confirm these cross-references match the frozen roadmap.
 - REVIEW_REQUIRED: 1.19 §16 claim about low-rank structure aiding extraction/membership attacks needs a literature citation.
