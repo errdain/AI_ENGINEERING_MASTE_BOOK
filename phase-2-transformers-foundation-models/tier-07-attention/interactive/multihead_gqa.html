@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Multi-head split & MQA / GQA KV-sharing</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:190px}input[type=range]{flex:1;min-width:140px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}input[type=text],select{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:5px 8px;font:14px system-ui}input[type=text]{flex:1;min-width:200px}canvas,svg{max-width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}.row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:300px}button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer;font:14px system-ui}.warn{color:var(--hot);font-weight:600}</style></head><body>
+<h1>Multi-head split & MQA / GQA KV-sharing</h1><p class="sub">Pick d_model, query heads and KV heads: see head dimension, parameter counts and the KV cache saving of sharing K/V across query heads.</p>
+<div class="card">
+<label><span class="n">d_model</span><input id="dm" type="range" min="64" max="8192" step="64" value="4096"><b class="v" id="dmv"></b></label>
+<label><span class="n">query heads H</span><select id="H"></select></label>
+<label><span class="n">KV heads (H_kv must divide H)</span><select id="Hk"></select></label>
+<label><span class="n">layers</span><input id="L" type="range" min="1" max="96" value="32"><b class="v" id="Lv"></b></label>
+<label><span class="n">context length</span><input id="n" type="range" min="128" max="131072" step="128" value="8192"><b class="v" id="nv"></b></label>
+<label><span class="n">bytes per element</span><select id="bp"><option value="4">4 (fp32)</option><option value="2" selected>2 (fp16/bf16)</option><option value="1">1 (int8/fp8)</option></select></label>
+</div>
+<div class="card"><svg id="svg" viewBox="0 0 900 230" width="100%"></svg></div>
+<div class="card"><table id="tb"></table>
+<p class="note">Head dimension = d_model / H. Parameters per attention layer: W_q d·(H·d_h), W_k and W_v d·(H_kv·d_h) each, W_o (H·d_h)·d. KV cache per token per layer = 2·H_kv·d_h·bytes. Sizes are exact for the stated shapes, not a specific model.</p></div>
+<script>
+const $=i=>document.getElementById(i);
+const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const divs=n=>{const a=[];for(let i=1;i<=n;i++)if(n%i===0)a.push(i);return a};
+function fillH(){const dm=+$("dm").value,cur=+$("H").value||32;const opts=[];for(const h of [1,2,4,8,12,16,20,24,32,40,48,64,96,128])if(dm%h===0&&dm/h>=8)opts.push(h);
+ $("H").innerHTML=opts.map(h=>`<option ${h===cur?"selected":""}>${h}</option>`).join("");if(!opts.includes(cur)&&opts.length)$("H").value=opts[Math.min(opts.length-1,4)];fillK()}
+function fillK(){const H=+$("H").value,cur=+$("Hk").value;$("Hk").innerHTML=divs(H).map(h=>`<option ${h===(cur&&H%cur===0?cur:H)?"selected":""}>${h}</option>`).join("")}
+function fmt(b){return b>=2**30?(b/2**30).toFixed(2)+" GiB":b>=2**20?(b/2**20).toFixed(1)+" MiB":(b/1024).toFixed(1)+" KiB"}
+function run(){
+ const dm=+$("dm").value,H=+$("H").value,Hk=+$("Hk").value,L=+$("L").value,n=+$("n").value,bp=+$("bp").value;
+ $("dmv").textContent=dm;$("Lv").textContent=L;$("nv").textContent=n;
+ const dh=dm/H,kind=Hk===H?"MHA":Hk===1?"MQA":"GQA";
+ const pq=dm*H*dh,pk=dm*Hk*dh,po=H*dh*dm,tot=pq+2*pk+po,mha=pq*2+2*dm*H*dh;
+ const kv=2*L*Hk*dh*n*bp,kvF=2*L*H*dh*n*bp;
+ $("tb").innerHTML=`<tr><th>variant</th><td>${kind} (H=${H}, H_kv=${Hk}, group size ${H/Hk})</td></tr><tr><th>head dim d_h</th><td>${dh}</td></tr><tr><th>attention params / layer</th><td>${(tot/1e6).toFixed(2)} M (MHA would be ${(mha/1e6).toFixed(2)} M; ${(100*tot/mha).toFixed(0)}%)</td></tr><tr><th>KV cache / token (all layers)</th><td>${fmt(2*L*Hk*dh*bp)}</td></tr><tr><th>KV cache at ${n} tokens, 1 seq</th><td>${fmt(kv)} (MHA: ${fmt(kvF)}; ${(kvF/kv).toFixed(1)}x saving)</td></tr>`;
+ const s=$("svg");let o="";const W=900,bw=Math.min(40,(W-40)/H-4);const g=H/Hk;
+ for(let q=0;q<H;q++){const x=20+q*((W-40)/H);o+=`<rect x="${x}" y="20" width="${bw}" height="34" rx="4" fill="#4C78A8"/><text x="${x+bw/2}" y="42" fill="#fff" font-size="11" text-anchor="middle">Q${q}</text>`;
+  const kv_=Math.floor(q/g),cx=20+(kv_*g+(g-1)/2)*((W-40)/H)+bw/2;o+=`<line x1="${x+bw/2}" y1="54" x2="${cx}" y2="150" stroke="${["#4C78A8","#F58518","#54A24B","#E45756","#72B7B2","#B279A2","#EECA3B","#9D755D"][kv_%8]}" stroke-width="1.3" opacity=".8"/>`}
+ for(let k=0;k<Hk;k++){const x0=20+k*g*((W-40)/H),w=g*((W-40)/H)-4;o+=`<rect x="${x0}" y="150" width="${w}" height="34" rx="4" fill="${["#4C78A8","#F58518","#54A24B","#E45756","#72B7B2","#B279A2","#EECA3B","#9D755D"][k%8]}"/><text x="${x0+w/2}" y="172" fill="#fff" font-size="11" text-anchor="middle">${Hk<=16?"K/V"+k:""}</text>`}
+ o+=`<text x="20" y="210" fill="${cs("--fg")}" font-size="13">${kind}: ${H} query heads read ${Hk} shared K/V head${Hk>1?"s":""}; each query head still has its own W_q slice and softmax</text>`;
+ s.innerHTML=o}
+$("dm").addEventListener("input",()=>{fillH();run()});$("H").addEventListener("input",()=>{fillK();run()});
+["Hk","L","n","bp"].forEach(i=>$(i).addEventListener("input",run));fillH();run();
+
+</script></body></html>

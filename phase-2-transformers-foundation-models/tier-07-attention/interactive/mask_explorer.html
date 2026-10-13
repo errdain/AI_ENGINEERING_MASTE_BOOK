@@ -1,0 +1,38 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mask explorer: causal, padding, window, sinks</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:190px}input[type=range]{flex:1;min-width:140px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}input[type=text],select{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:5px 8px;font:14px system-ui}input[type=text]{flex:1;min-width:200px}canvas,svg{max-width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}.row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:300px}button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer;font:14px system-ui}.warn{color:var(--hot);font-weight:600}</style></head><body>
+<h1>Mask explorer: causal, padding, window, sinks</h1><p class="sub">Combine masks and see exactly which query/key pairs survive. Set S different from T to see cross-attention shapes (T x S need not be square).</p>
+<div class="card">
+<label><span class="n">query length T</span><input id="T" type="range" min="2" max="24" value="12"><b class="v" id="Tv"></b></label>
+<label><span class="n">key length S (cross-attention if ≠ T)</span><input id="S" type="range" min="2" max="24" value="12"><b class="v" id="Sv"></b></label>
+<label><span class="n">real (non-PAD) keys</span><input id="len" type="range" min="1" max="24" value="9"><b class="v" id="lv"></b></label>
+<label><span class="n">causal</span><input type="checkbox" id="causal" checked></label>
+<label><span class="n">padding mask</span><input type="checkbox" id="pad" checked></label>
+<label><span class="n">sliding window w (0 = off)</span><input id="win" type="range" min="0" max="24" value="0"><b class="v" id="wv"></b></label>
+<label><span class="n">sink tokens kept</span><input id="sink" type="range" min="0" max="6" value="0"><b class="v" id="skv"></b></label>
+</div>
+<div class="row"><div class="card"><canvas id="c" width="520" height="540"></canvas></div>
+<div class="card"><table id="tb"></table><p class="note">Green = the (query i, key j) score is computed and kept. White/grey = set to -inf before softmax, so its weight is exactly 0.<br>Rows can end up with zero allowed keys (e.g. a padded query row or window that excludes everything) &mdash; in naive code softmax gives NaN; real kernels special-case this.</p></div></div>
+<script>
+const $=i=>document.getElementById(i);
+const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function run(){
+ const T=+$("T").value,S=+$("S").value,len=Math.min(+$("len").value,S),cz=$("causal").checked,pd=$("pad").checked,w=+$("win").value,sk=+$("sink").value;
+ $("Tv").textContent=T;$("Sv").textContent=S;$("lv").textContent=len;$("wv").textContent=w||"off";$("skv").textContent=sk;
+ let allowed=0,zero=0;const M=[];
+ for(let i=0;i<T;i++){M.push([]);let rc=0;for(let j=0;j<S;j++){
+  let ok=true;const off=S-T; // align last query with last key (decode-style)
+  if(cz&&j>i+off)ok=false; if(pd&&j>=len)ok=false;
+  if(w>0&&!(sk>0&&j<sk&&(!cz||j<=i+off))){ if(cz?(j<=i+off-w):false)ok=false; if(!cz&&Math.abs(j-(i+off))>=w)ok=false }
+  M[i].push(ok);if(ok){allowed++;rc++}}
+  if(!rc)zero++}
+ const c=$("c"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);const L=34,cell=Math.min(22,(c.width-L-4)/Math.max(S,T));
+ g.font="10px system-ui";g.fillStyle=cs("--mut");g.fillText("key j →",L,10);
+ for(let j=0;j<S;j++){g.fillStyle=(pd&&j>=len)?cs("--hot"):cs("--mut");g.fillText(j,L+j*cell+3,22)}
+ for(let i=0;i<T;i++){g.fillStyle=cs("--mut");g.fillText(i,8,30+i*cell+cell*0.65);for(let j=0;j<S;j++){
+  g.fillStyle=M[i][j]?cs("--ok"):cs("--grid");g.fillRect(L+j*cell,28+i*cell,cell-1,cell-1)}}
+ const full=T*S,causalN=cz?(()=>{let a=0;for(let i=0;i<T;i++)for(let j=0;j<S;j++)if(j<=i+S-T)a++;return a})():full;
+ $("tb").innerHTML=`<tr><th>pairs computed</th><td>${allowed} of ${full} (${(100*allowed/full).toFixed(0)}%)</td></tr><tr><th>vs. full bidirectional</th><td>${(full/Math.max(allowed,1)).toFixed(1)}x fewer</td></tr><tr><th>rows with no allowed key</th><td class="${zero?"warn":""}">${zero}</td></tr><tr><th>kind</th><td>${T===S?"self-attention":"cross-attention (queries from decoder, keys from encoder)"}${cz?" + causal":" (bidirectional)"}</td></tr><tr><th>mask applied as</th><td>scores.masked_fill(~mask, -inf)</td></tr>`;
+}
+["T","S","len","causal","pad","win","sink"].forEach(i=>$(i).addEventListener("input",run));run();
+
+</script></body></html>

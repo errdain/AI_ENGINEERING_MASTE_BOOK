@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Attention O(n²) memory & KV-cache calculator</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:190px}input[type=range]{flex:1;min-width:140px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}input[type=text],select{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:5px 8px;font:14px system-ui}input[type=text]{flex:1;min-width:200px}canvas,svg{max-width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}.row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:300px}button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer;font:14px system-ui}.warn{color:var(--hot);font-weight:600}</style></head><body>
+<h1>Attention O(n²) memory & KV-cache calculator</h1><p class="sub">Slide the sequence length and model shape: the naive score matrix grows quadratically, the KV cache linearly in n; GQA, sliding windows and FlashAttention each attack a different term.</p>
+<div class="card">
+<label><span class="n">sequence length n</span><input id="n" type="range" min="7" max="19" step="0.25" value="13"><b class="v" id="nv"></b></label>
+<label><span class="n">query heads H</span><input id="H" type="range" min="1" max="128" value="32"><b class="v" id="Hv"></b></label>
+<label><span class="n">KV heads H_kv</span><input id="Hk" type="range" min="1" max="128" value="8"><b class="v" id="Hkv"></b></label>
+<label><span class="n">head dim d_h</span><input id="dh" type="range" min="16" max="256" step="16" value="128"><b class="v" id="dhv"></b></label>
+<label><span class="n">layers</span><input id="L" type="range" min="1" max="96" value="32"><b class="v" id="Lv"></b></label>
+<label><span class="n">batch size</span><input id="B" type="range" min="1" max="64" value="1"><b class="v" id="Bv"></b></label>
+<label><span class="n">bytes per element</span><select id="bp"><option value="4">4 (fp32)</option><option value="2" selected>2 (fp16/bf16)</option><option value="1">1 (int8/fp8)</option></select></label>
+<label><span class="n">sliding window w (0 = full)</span><input id="w" type="range" min="0" max="16384" step="256" value="0"><b class="v" id="wv"></b></label>
+<label><span class="n">accelerator memory (GiB)</span><input id="mem" type="range" min="8" max="192" step="8" value="80"><b class="v" id="mv"></b></label>
+</div>
+<div class="card"><canvas id="c" width="900" height="280"></canvas></div>
+<div class="card"><table id="tb"></table>
+<p class="note">Exact formulas: score matrix B·H·n² (one layer, materialised naively); KV cache 2·L·H_kv·d_h·n·B; attention FLOPs/layer ≈ 4·B·H·n²·d_h (QKᵀ and PV, multiply-add = 2 FLOPs, projections excluded). FlashAttention computes the same result in tiles and never stores the n×n matrix (memory O(n) for activations), but compute is still O(n²). The 80 GiB reference line is a typical size, not a claim about any device (REVIEW_REQUIRED per hardware).</p></div>
+<script>
+const $=i=>document.getElementById(i);
+const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function fmt(b){return b>=2**40?(b/2**40).toFixed(2)+" TiB":b>=2**30?(b/2**30).toFixed(2)+" GiB":b>=2**20?(b/2**20).toFixed(1)+" MiB":(b/1024).toFixed(1)+" KiB"}
+function stats(n,p){const eff=p.w>0?Math.min(n,p.w):n;
+ return{score:p.B*p.H*n*eff*p.bp,kv:2*p.L*p.Hk*p.dh*eff*p.B*p.bp,fl:4*p.B*p.H*n*eff*p.dh}}
+function run(){
+ const p={H:+$("H").value,Hk:+$("Hk").value,dh:+$("dh").value,L:+$("L").value,B:+$("B").value,bp:+$("bp").value,w:+$("w").value};
+ if(p.Hk>p.H){p.Hk=p.H;$("Hk").value=p.H}
+ const n=Math.round(2**(+$("n").value));const mem=+$("mem").value*2**30;
+ $("nv").textContent=n;$("Hv").textContent=p.H;$("Hkv").textContent=p.Hk;$("dhv").textContent=p.dh;$("Lv").textContent=p.L;$("Bv").textContent=p.B;$("wv").textContent=p.w||"off";$("mv").textContent=$("mem").value;
+ const s=stats(n,p),s2=stats(2*n,p);
+ $("tb").innerHTML=`<tr><th>score matrix (1 layer, naive)</th><td class="${s.score>mem?"warn":""}">${fmt(s.score)}${s.score>mem?"  exceeds memory":""}</td></tr><tr><th>... with FlashAttention-style tiling</th><td>not stored (O(n) activations)</td></tr><tr><th>KV cache (all layers, batch)</th><td class="${s.kv>mem?"warn":""}">${fmt(s.kv)}${s.kv>mem?"  exceeds memory":""} (MHA equivalent ${fmt(s.kv*p.H/p.Hk)})</td></tr><tr><th>attention FLOPs / layer</th><td>${(s.fl/1e9).toFixed(1)} GFLOP</td></tr><tr><th>doubling n multiplies score memory by</th><td>${(s2.score/s.score).toFixed(2)}x, KV cache by ${(s2.kv/s.kv).toFixed(2)}x</td></tr>`;
+ const c=$("c"),g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);const x0=60,x1=c.width-20,yb=230,yt=20;
+ const lo=7,hi=19,X=e=>x0+(e-lo)/(hi-lo)*(x1-x0);const vals=[];for(let e=lo;e<=hi;e+=.25){const m=Math.round(2**e),t=stats(m,p);vals.push([e,t.score,t.kv])}
+ const maxv=Math.max(...vals.map(v=>Math.max(v[1],v[2],mem)))*1.2,minv=Math.max(1e3,Math.min(...vals.map(v=>Math.min(v[1],v[2])))*.8);
+ const Y=v=>yb-(Math.log(v)-Math.log(minv))/(Math.log(maxv)-Math.log(minv))*(yb-yt);
+ g.strokeStyle=cs("--grid");g.lineWidth=1;g.strokeRect(x0,yt,x1-x0,yb-yt);g.font="12px system-ui";g.fillStyle=cs("--mut");
+ for(let e=8;e<=18;e+=2){g.fillText(2**e>=1024?(2**e/1024)+"K":2**e,X(e)-10,yb+16)}g.fillText("sequence length (log scale)",x1-170,yb+34);
+ g.save();g.translate(14,150);g.rotate(-Math.PI/2);g.fillText("bytes (log scale)",0,0);g.restore();
+ [["--hot",1,"score matrix per layer (naive)"],["--ac",2,"KV cache (all layers)"]].forEach(([c_,k,l],idx)=>{g.strokeStyle=cs(c_);g.lineWidth=3;g.beginPath();vals.forEach((v,i)=>{const y=Y(Math.max(v[k],minv));i?g.lineTo(X(v[0]),y):g.moveTo(X(v[0]),y)});g.stroke();g.fillStyle=cs(c_);g.fillText(l,x0+10,yt+16+idx*16)});
+ g.strokeStyle=cs("--mut");g.setLineDash([5,4]);g.beginPath();g.moveTo(x0,Y(mem));g.lineTo(x1,Y(mem));g.stroke();g.setLineDash([]);g.fillStyle=cs("--mut");g.fillText($("mem").value+" GiB memory",x1-130,Y(mem)-4);
+ g.strokeStyle=cs("--ok");g.lineWidth=2;g.beginPath();g.moveTo(X(+$("n").value),yt);g.lineTo(X(+$("n").value),yb);g.stroke();
+}
+["n","H","Hk","dh","L","B","bp","w","mem"].forEach(i=>$(i).addEventListener("input",run));run();
+
+</script></body></html>
