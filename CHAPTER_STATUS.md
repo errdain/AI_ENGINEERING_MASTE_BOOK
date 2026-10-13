@@ -10,4 +10,5 @@
 | 07 | Attention | ChatGPT | Claude | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 | 08 | Transformers | ChatGPT | Claude | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 | 09 | Foundation Model Pretraining | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
+| 11 | LLM Inference & Optimization | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 ...
