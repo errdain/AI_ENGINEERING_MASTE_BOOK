@@ -5,6 +5,7 @@ import torch
 from mini_gpt import GPTConfig, MiniGPT, RMSNorm, count_params, count_params_formula
 from train_mini_gpt import build_data, train
 
+torch.set_num_threads(2)   # tiny matmuls: more threads only add overhead
 SMALL = dict(vocab_size=23, block_size=16, n_layer=2, n_head=2, d_model=32)
 
 

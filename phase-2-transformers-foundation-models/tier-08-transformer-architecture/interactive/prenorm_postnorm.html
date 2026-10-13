@@ -25,7 +25,7 @@ table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th
 <button id="re">re-roll weights</button></div></div>
 <div class="row"><div class="card"><h2>Activation RMS per layer (forward)</h2><canvas id="c1" width="460" height="300"></canvas></div>
 <div class="card"><h2>Gradient RMS per layer (backward, log scale)</h2><canvas id="c2" width="460" height="300"></canvas></div></div>
-<div class="card"><table id="tb"></table><p class="note">Read-out: Pre-LN activations grow (the stream accumulates every layer's write, so later layers see a larger x, which LN rescales), while gradients stay roughly flat along the identity path. Post-LN renormalises the stream after every add, so the activation scale is constant, but each LN divides the gradient by the stream's scale and the gradient shrinks or grows geometrically with depth. This is a toy; the real-model measurement is Figure 2 in the README (<code>scripts/make_figures.py</code>).</p></div>
+<div class="card"><table id="tb"></table><p class="note">Read-out (try g = 0.5, 1, 2.5 with L = 48): Pre-LN activations grow with depth (the stream accumulates every layer's write), but the gradient reaching layer 0 stays about O(1) for any depth, because the identity path carries it. Post-LN renormalises the stream after every add, so activation scale is constant, but the gradient at layer 0 is multiplied by one LN Jacobian per sublayer and drifts geometrically: with a large gain it collapses (compare the &ldquo;gradient RMS at layer 0&rdquo; column as L grows). This is a toy at initialisation with one token and no attention; the real-model measurement of per-layer parameter-gradient norms is Figure 2 in the README.</p></div>
 
 <script>
 const $=i=>document.getElementById(i);const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -63,7 +63,7 @@ function plot(cid,a,b,log,ylab){const c=$(cid),g=c.getContext("2d"),W=c.width,H=
 function run(){const L=+$("L").value,d=+$("d").value,g=+$("g").value,s=+$("s").value;["L","d","g","s"].forEach(k=>$(k+"v").textContent=$(k).value);
  const A=sim("pre",L,d,g,s),B=sim("post",L,d,g,s);plot("c1",A.act,B.act,false);plot("c2",A.gr,B.gr,true);
  const q=(v)=>v.toPrecision(3);
- $("tb").innerHTML="<tr><th></th><th>activation RMS at output</th><th>gradient RMS at layer 0</th><th>gradient layer0 / last</th></tr>"+
+ $("tb").innerHTML="<tr><th></th><th>activation RMS at output</th><th>gradient RMS at layer 0</th><th>gradient layer0 / last (see note)</th></tr>"+
  "<tr><td>Pre-LN</td><td>"+q(A.act[L])+"</td><td>"+q(A.gr[0])+"</td><td>"+q(A.gr[0]/A.gr[L])+"</td></tr><tr><td>Post-LN</td><td>"+q(B.act[L])+"</td><td>"+q(B.gr[0])+"</td><td>"+q(B.gr[0]/B.gr[L])+"</td></tr>"}
 ["L","d","g","s"].forEach(i=>$(i).addEventListener("input",run));$("re").onclick=()=>{$("s").value=1+Math.floor(Math.random()*50);run()};run();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change",run);

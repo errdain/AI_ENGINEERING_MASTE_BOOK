@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GELU and SwiGLU — Tier 8</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--ac3:#54A24B;--hot:#E45756;--grid:#d8dde6}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:1000px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:150px}
+input[type=range]{flex:1;min-width:130px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+select,input[type=number],button{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}
+button{cursor:pointer}button:hover{border-color:var(--ac)}
+canvas,svg.fig{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}
+.note{color:var(--mut);font-size:13px}.warn{color:var(--hot);font-size:13px}
+table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:right}th:first-child,td:first-child{text-align:left}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:720px){.row{grid-template-columns:1fr}}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;background:var(--ac);color:#fff;font-size:12px}
+.bar{height:14px;border-radius:3px;display:inline-block;vertical-align:middle}
+</style></head><body>
+<h1>Activation functions: GELU, SiLU and the SwiGLU gate</h1><p class="sub">Plot ReLU, GELU and SiLU/Swish (function or derivative), then play with one SwiGLU gated unit and the equal-parameter FFN sizing rule.</p>
+
+<div class="row"><div class="card">
+<label><span class="n">x range &plusmn;</span><input id="xr" type="range" min="1" max="8" step="0.5" value="4"><b class="v" id="xrv"></b></label>
+<label><span class="n">Swish/SiLU &beta;</span><input id="beta" type="range" min="0.5" max="4" step="0.1" value="1"><b class="v" id="betav"></b></label>
+<label><span class="n">show</span><select id="mode"><option value="f">function f(x)</option><option value="d">derivative f&prime;(x)</option></select></label>
+<p class="note"><b>Curves:</b> <span style="color:var(--mut)">ReLU</span>, <span style="color:var(--ac)">GELU exact</span>, <span style="color:var(--ac3)">GELU tanh-approx</span>, <span style="color:var(--ac2)">SiLU/Swish</span>. GELU(x)=x&middot;&Phi;(x); SiLU(x)=x&middot;&sigma;(&beta;x).</p></div>
+<div class="card"><h2>SwiGLU gate</h2><p class="note" style="margin-top:0">SwiGLU(x)=SiLU(x&middot;W<sub>gate</sub>) &odot; (x&middot;W<sub>up</sub>). One unit shown: the output is the product of a smooth gate and a linear value.</p>
+<label><span class="n">gate pre-activation a</span><input id="a" type="range" min="-5" max="5" step="0.1" value="1.5"><b class="v" id="av"></b></label>
+<label><span class="n">value (up) u</span><input id="u" type="range" min="-5" max="5" step="0.1" value="2"><b class="v" id="uv"></b></label>
+<div id="sw" style="font-family:monospace;font-size:13px"></div></div></div>
+<div class="card"><canvas id="c" width="940" height="340"></canvas></div>
+<div class="card"><h2>Equal-parameter FFN sizing</h2>
+<label><span class="n">d_model</span><input id="d" type="range" min="64" max="8192" step="64" value="4096"><b class="v" id="dv"></b></label>
+<div id="ffn" class="note"></div></div>
+
+<script>
+const $=i=>document.getElementById(i);const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function erf(x){const s=Math.sign(x);x=Math.abs(x);const t=1/(1+0.3275911*x);return s*(1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x))}
+const sig=z=>1/(1+Math.exp(-z)),relu=x=>Math.max(0,x),Phi=x=>0.5*(1+erf(x/Math.SQRT2)),gelu=x=>x*Phi(x),
+ gt=x=>0.5*x*(1+Math.tanh(Math.sqrt(2/Math.PI)*(x+0.044715*x**3))),silu=(x,b)=>x*sig(b*x);
+const D=(f)=>x=>(f(x+1e-4)-f(x-1e-4))/2e-4;
+function run(){const R=+$("xr").value,b=+$("beta").value,a=+$("a").value,u=+$("u").value,d=+$("d").value,mode=$("mode").value;
+ ["xr","beta","a","u","d"].forEach(k=>$(k+"v").textContent=$(k).value);
+ const fs=[["ReLU",relu,"--mut"],["GELU (exact)",gelu,"--ac"],["GELU (tanh approx)",gt,"--ac3"],["SiLU β="+b,x=>silu(x,b),"--ac2"]].map(([n,f,c])=>[n,mode=="d"?D(f):f,c]);
+ const c=$("c"),g=c.getContext("2d"),W=c.width,H=c.height;g.clearRect(0,0,W,H);
+ let lo=1e9,hi=-1e9;fs.forEach(([,f])=>{for(let i=0;i<=200;i++){const v=f(-R+2*R*i/200);lo=Math.min(lo,v);hi=Math.max(hi,v)}});const pad=(hi-lo)*0.08;lo-=pad;hi+=pad;
+ const X=x=>40+(x+R)/(2*R)*(W-60),Y=v=>H-30-(v-lo)/(hi-lo)*(H-50);
+ g.strokeStyle=cv("--grid");g.fillStyle=cv("--mut");g.font="12px sans-serif";g.lineWidth=1;
+ for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;g.beginPath();g.moveTo(40,Y(v));g.lineTo(W-20,Y(v));g.stroke();g.fillText(v.toFixed(2),2,Y(v)+4)}
+ g.strokeStyle=cv("--mut");g.beginPath();g.moveTo(X(0),10);g.lineTo(X(0),H-30);g.moveTo(40,Y(0));g.lineTo(W-20,Y(0));g.stroke();
+ g.fillText("input x →",W/2,H-8);
+ fs.forEach(([n,f,cl],j)=>{g.strokeStyle=cv(cl);g.lineWidth=2.5;g.beginPath();for(let i=0;i<=400;i++){const x=-R+2*R*i/400;i?g.lineTo(X(x),Y(f(x))):g.moveTo(X(x),Y(f(x)))}g.stroke();g.fillStyle=cv(cl);g.fillText("— "+n,W-190,18+j*16)});
+ g.fillStyle=cv("--fg");g.fillText(mode=="d"?"derivative of each activation":"activation value",50,18);
+ const gate=silu(a,1);$("sw").innerHTML="gate = SiLU("+a.toFixed(1)+") = "+gate.toFixed(3)+"<br>output = gate × u = "+gate.toFixed(3)+" × "+u.toFixed(1)+" = <b>"+(gate*u).toFixed(3)+"</b><br>"+(a<-1?"gate nearly closed: this unit is switched off for this token":a>1?"gate open: value passes (scaled)":"gate partly open")+"<br>compare GELU path: GELU("+u.toFixed(1)+") = "+gelu(u).toFixed(3);
+ const g2=Math.round(4*d),s2=Math.round(8*d/3);
+ $("ffn").innerHTML="GELU FFN: 2 matrices &times; d&middot;4d = <b>"+(2*d*g2/1e6).toFixed(1)+" M</b> params (d_ff = 4d = "+g2+").<br>SwiGLU FFN: 3 matrices &times; d&middot;d_ff. To match, d_ff &asymp; (8/3)d = <b>"+s2+"</b> &rarr; 3&middot;d&middot;"+s2+" = "+(3*d*s2/1e6).toFixed(1)+" M. Llama-style models round this to a hardware-friendly multiple (e.g. 4096 &rarr; 11008; <b>REVIEW_REQUIRED</b>)."}
+["xr","beta","mode","a","u","d"].forEach(i=>$(i).addEventListener("input",run));run();matchMedia("(prefers-color-scheme: dark)").addEventListener("change",run);
+
+</script></body></html>

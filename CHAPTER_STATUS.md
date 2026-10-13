@@ -8,5 +8,5 @@
 | 05 | Sequence Models | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED |
 | 06 | Tokenization | ChatGPT | Claude | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 | 07 | Attention | ChatGPT | Claude | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
-| 08 | Transformers | ChatGPT | Claude | Codex | ChatGPT | NOT STARTED |
+| 08 | Transformers | ChatGPT | Claude | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 ...

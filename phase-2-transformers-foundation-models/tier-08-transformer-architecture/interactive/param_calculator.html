@@ -22,7 +22,7 @@ table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th
 <label><span class="n">layers L</span><input id="L" type="range" min="1" max="128" value="12"><b class="v" id="Lv"></b></label>
 <label><span class="n">d_model</span><input id="d" type="range" min="32" max="16384" step="32" value="768"><b class="v" id="dv"></b></label>
 <label><span class="n">heads h</span><input id="h" type="range" min="1" max="128" value="12"><b class="v" id="hv"></b></label>
-<label><span class="n">vocab V</span><input id="V" type="range" min="100" max="256000" step="100" value="50257"><b class="v" id="Vv"></b></label>
+<label><span class="n">vocab V</span><input id="V" type="range" min="1" max="256000" step="1" value="50257"><b class="v" id="Vv"></b></label>
 <label><span class="n">context T (learned pos)</span><input id="T" type="range" min="16" max="131072" step="16" value="1024"><b class="v" id="Tv"></b></label>
 <label><span class="n">d_ff</span><input id="ff" type="number" min="1" step="1" value="3072" style="width:100px"> <button id="ffa">auto</button></label>
 </div><div class="card">
@@ -65,7 +65,7 @@ function run(){const c=read();["L","d","h","V","T"].forEach(k=>$(k+"v").textCont
  const rows=[["token embedding (V·d)",r.emb,"--ac"],["position embedding",r.posp,"--ac3"],["attention (QKV+out) all layers",r.attn,"--ac2"],["FFN / MLP all layers",r.mlp,"--hot"],["norm weights",r.norms,"--mut"],["separate output head",r.head,"--ac"]];
  $("tb").innerHTML="<tr><th>component</th><th>params</th><th>share</th></tr>"+rows.map(x=>"<tr><td>"+x[0]+"</td><td>"+x[1].toLocaleString()+"</td><td>"+(100*x[1]/t).toFixed(1)+"%</td></tr>").join("")+
   "<tr><td>weights in bf16/fp16</td><td colspan=2>"+(2*t/1e9).toFixed(2)+" GB</td></tr><tr><td>training state ≈16 B/param</td><td colspan=2>"+(16*t/1e9).toFixed(1)+" GB</td></tr><tr><td>forward FLOPs/token ≈2N</td><td colspan=2>"+(2*t/1e9).toFixed(2)+" GFLOP</td></tr>"+
-  "<tr><td>per-layer share of 12d²-ish block</td><td colspan=2>"+(100*(r.attn+r.mlp)/t).toFixed(1)+"% of total</td></tr>";
+  "<tr><td>attention + FFN share of all params</td><td colspan=2>"+(100*(r.attn+r.mlp)/t).toFixed(1)+"% of total</td></tr>";
  $("bars").innerHTML=rows.map(x=>"<div style='display:flex;gap:8px;align-items:center;margin:3px 0'><span style='width:210px;font-size:13px'>"+x[0]+"</span><span class='bar' style='background:var("+x[2]+");width:"+(100*x[1]/t*0.6).toFixed(1)+"%;min-width:2px'></span><span class='note'>"+(100*x[1]/t).toFixed(1)+"%</span></div>").join("")}
 const sel=$("pre");Object.keys(P).forEach(k=>sel.add(new Option(k,k)));
 function apply(k){const p=P[k],ids=["L","d","h","V","T","ff","act","norm","pos"];ids.forEach((id,i)=>$(id).value=p[i]||(id=="T"?16:p[i]));if(p[4]==0)$("T").value=16;$("tie").checked=p[9];$("bias").checked=p[10];$("prenote").textContent=p[11];run()}
