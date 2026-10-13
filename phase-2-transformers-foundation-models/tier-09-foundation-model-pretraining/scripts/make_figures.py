@@ -227,7 +227,86 @@ def fig_budget():
     save(fig, "09_compute_budget_6nd.png")
 
 
+# ---- 10. objectives: which positions see which, and where the loss is computed ----------------------------
+def fig_objectives():
+    T = 8
+    causal = np.tril(np.ones((T, T)))
+    full = np.ones((T, T))
+    prefix = np.tril(np.ones((T, T))); prefix[:, :4] = 1          # bidirectional prefix of 4, causal suffix
+    masked_pos = [1, 4, 6]
+    fig, ax = plt.subplots(1, 3, figsize=(11, 4.2))
+    for a, m, t, loss_rows in zip(ax, (causal, full, prefix),
+                                  ("next-token (causal)\nloss on every position", "masked LM (bidirectional)\nloss only on masked positions",
+                                   "prefix-LM\nloss on suffix positions"),
+                                  (range(T), masked_pos, range(4, T))):
+        a.imshow(m, cmap="Blues", vmin=0, vmax=1.4)
+        for r in loss_rows:
+            a.add_patch(plt.Rectangle((-0.5, r - 0.5), T, 1, fill=False, ec=C[3], lw=2))
+        a.set_xticks(range(T)); a.set_yticks(range(T)); a.set_title(t, fontsize=10)
+        a.set_xlabel("key position (token that can be read)"); a.set_ylabel("query position")
+        a.spines[:].set_visible(False)
+    fig.suptitle("Pretraining objectives: blue = attention allowed; red-outlined rows = positions that receive a loss", fontweight="bold", y=1.02)
+    fig.tight_layout(); save(fig, "10_objectives_masks.png")
+
+
+# ---- 11. memory per parameter, and what sharding does to it -------------------------------------------------
+def fig_memory():
+    parts = [("bf16 weights", 2, C[0]), ("bf16 gradients", 2, C[1]), ("fp32 master weights", 4, C[2]), ("fp32 Adam moments (m, v)", 8, C[3])]
+    fig, ax = plt.subplots(1, 2, figsize=(11, 4.4))
+    bottom = 0
+    for n, b, c in parts:
+        ax[0].bar(["per parameter"], [b], bottom=bottom, color=c, label=f"{n}: {b} B"); bottom += b
+    ax[0].set_ylabel("bytes per parameter"); ax[0].set_title("Persistent training state = 16 B / param\n(REVIEW_REQUIRED: depends on recipe)")
+    ax[0].legend(fontsize=9, loc="upper left", bbox_to_anchor=(1.0, 1.0)); ax[0].set_ylim(0, 18)
+    dp = np.array([1, 2, 4, 8, 16, 32, 64])
+    stage = {"plain DP (no sharding)": lambda d: 16 + 0 * d,
+             "shard optimizer state (ZeRO-1 style)": lambda d: 4 + 12 / d,
+             "+ shard gradients (ZeRO-2 style)": lambda d: 2 + 14 / d,
+             "+ shard parameters (ZeRO-3 / FSDP style)": lambda d: 16 / d}
+    for (n, f), c in zip(stage.items(), C):
+        ax[1].plot(dp, f(dp), "o-", c=c, lw=2, label=n)
+    ax[1].set_xscale("log", base=2); ax[1].set_xticks(dp); ax[1].set_xticklabels(dp)
+    ax[1].set_xlabel("data-parallel degree (number of replicas / shards)"); ax[1].set_ylabel("bytes per parameter per GPU")
+    ax[1].set_title("Per-GPU state memory vs sharding stage\n(activations excluded)"); ax[1].legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+    fig.tight_layout(); save(fig, "11_memory_per_param_sharding.png")
+
+
+# ---- 12. LR schedule (warmup + cosine) with the lab's own lr_at ----------------------------------------------
+def fig_schedule():
+    from pretrain import lr_at
+    fig, ax = plt.subplots(figsize=(8.5, 4.3))
+    for w, c in [(10, C[2]), (50, C[0])]:
+        cfg = TrainConfig(steps=300, warmup=w)
+        ax.plot([lr_at(s, cfg) for s in range(300)], c=c, lw=2.5, label=f"warmup {w} steps, peak {cfg.lr:g}, floor {cfg.min_lr_frac:g} x peak")
+    ax.axvline(10, c=C[2], ls=":"); ax.axvline(50, c=C[0], ls=":")
+    ax.set_xlabel("optimizer step"); ax.set_ylabel("learning rate"); ax.set_title("Warmup + cosine decay (lab's lr_at): the schedule stability and continued pretraining both reuse")
+    ax.legend(); save(fig, "12_lr_schedule.png")
+
+
+# ---- 13. data for interactive/lr_stability.html (measured sweeps) ---------------------------------------------
+def build_lr_stability_page():
+    import json, re
+    tok, tr, va, _ = PREP
+    lrs = [3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2, 1e-1]
+    data = {"steps": 120, "lrs": lrs, "runs": {}}
+    for clip in (1.0, 1e9):
+        for warm in (1, 10):
+            for li, lr in enumerate(lrs):
+                cfg = TrainConfig(steps=120, lr=lr, warmup=warm, grad_clip=clip, eval_every=10**6, ckpt_every=10**6,
+                                  model=ModelConfig(vocab_size=tok.vocab_size))
+                m = train(cfg, tr, va, TMP / f"s{clip}_{warm}_{lr}")
+                h = m["history"]["train"]
+                key = f"{'clip' if clip < 1e8 else 'noclip'}|{warm}|{li}"
+                data["runs"][key] = {"loss": [round(x["loss"], 3) for x in h], "gn": [round(x["grad_norm"], 3) for x in h],
+                                     "events": [e["event"] for e in m["history"]["events"]]}
+    page = HERE.parent / "interactive" / "lr_stability.html"
+    t = page.read_text(encoding="utf-8")
+    t = re.sub(r"/\*DATA\*/.*?/\*ENDDATA\*/", lambda _: "/*DATA*/" + json.dumps(data, separators=(",", ":")) + "/*ENDDATA*/", t, flags=re.S)
+    page.write_text(t, encoding="utf-8")
+
+
 if __name__ == "__main__":
-    for f in (fig_funnel, fig_minhash, fig_mixture, fig_scaling, fig_sweep, fig_lr_gif, fig_moe_gif, fig_resume, fig_budget):
+    for f in (fig_funnel, fig_minhash, fig_mixture, fig_scaling, fig_sweep, fig_lr_gif, fig_moe_gif, fig_resume, fig_budget,
+              fig_objectives, fig_memory, fig_schedule, build_lr_stability_page):
         print(f.__name__); f()
     print("done ->", OUT)
