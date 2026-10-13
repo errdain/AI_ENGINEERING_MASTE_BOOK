@@ -38,3 +38,11 @@
 - Glossary/terminology to approve: "base rate", "calibration", "perplexity", "condition number", "saddle point", "basin of attraction", "vector–Jacobian product", "i.i.d.".
 - Forward references to other tiers: Tier 2 (PCA, Naive Bayes, regression, decision trees), Tier 4 (mixed precision, init, optimizers, loss functions), Tier 7 (attention), Tier 10 (RLHF/DPO/LoRA), Tier 11 (quantization), Tier 15 (calibration, metrics), Tier 31 (drift monitoring). Critic should verify against the frozen roadmap.
 - Possible duplication to adjudicate: softmax/log-sum-exp appear in 1.28, 1.37, 1.39, 1.43 (1.43 is intended as the authoritative location); condition number appears in 1.14, 1.19, 1.39, 1.45, 1.46.
+
+## Lab and revision sheet (Tier 1 closing batch)
+
+- NEW: `lab/` (28 tests) with solutions to the section-20 exercises of all 47 concepts and PyTorch verification (torch 2.14.1). `revision_sheet.md` condenses the tier. Total 105 tests passing.
+- RESOLVED (were NOT_TESTED): PyTorch snippet in 1.4 and safe-loading note (`t_1_4_safe_load`); PyTorch autograd check in 1.25; bfloat16 row in 1.40 (`torch.finfo`); int8 wraparound and fp16 loss scaling in 1.44; `var` defaults for NumPy and PyTorch in 1.30; double-softmax pitfall in 1.37.
+- STILL REVIEW_REQUIRED: pandas `.var()` default (pandas not installed); citations for the 1.19 attack claim, 1.23 saddle-point claim, 1.46 sharp/flat minima and residual-smoothing claims, 1.47 overparameterization claim; 1.40 training-practice statements (fp8, Adam state memory); 1.11 "≈2×params FLOPs/token" qualification.
+- CAVEATS found while building the lab: (a) timing tests are noisy: one failed on first run and was made robust (best-of-3, loose bound, largest size only); (b) `torch.load` default behaviour is version-sensitive; (c) NumPy scalar integer overflow raises a `RuntimeWarning` on 2.5.4.
+- For Codex code review: run `python -m pytest -q code lab` from `tier-01-mathematics/` with `requirements.txt`; markdown snippets that are not covered by tests are the ones without a TESTED note.
