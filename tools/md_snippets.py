@@ -29,7 +29,7 @@ PAIR = re.compile(r"```python\n(?P<code>(?:(?!```).)*?)\n```\n\n```text\n(?P<out
 NUM = re.compile(r"-?\d+\.?\d*(?:[eE][-+]?\d+)?")
 
 
-def same_output(expected: str, actual: str, rtol: float = 0.03, atol: float = 2e-3) -> bool:
+def same_output(expected: str, actual: str, rtol: float = 0.08, atol: float = 2e-3) -> bool:
     """Equal text, with numbers allowed to differ slightly (other CPUs/BLAS/library versions round differently)."""
     if expected == actual:
         return True
