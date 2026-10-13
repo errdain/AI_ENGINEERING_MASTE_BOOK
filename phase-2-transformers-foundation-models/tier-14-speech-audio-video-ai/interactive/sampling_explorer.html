@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sampling and Quantization Explorer - Tier 14</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:70px;text-align:right;font-variant-numeric:tabular-nums}select,input[type=text],textarea{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:5px;font:14px monospace;max-width:100%}input[type=text]{width:100%}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:left}.tok{display:inline-block;padding:2px 6px;margin:2px;border-radius:5px;color:#fff;font:13px monospace}.hot{color:var(--hot);font-weight:bold}.ok{color:var(--ok);font-weight:bold}button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}</style></head><body>
+
+<h1>Waveform, sampling-rate and quantization explorer</h1>
+<p class="sub">A continuous sine (grey) is sampled at the chosen rate (dots) and quantized to the chosen bit depth (steps). Push the frequency above half the sample rate (the Nyquist limit) and the reconstructed wave (red) is a lower <b>alias</b> frequency.</p>
+<div class="card">
+<label><span class="n">tone frequency (Hz)</span><input id="f" type="range" min="50" max="8000" step="10" value="440"><b class="v" id="fv"></b></label>
+<label><span class="n">sample rate (Hz)</span><input id="sr" type="range" min="1000" max="16000" step="500" value="8000"><b class="v" id="srv"></b></label>
+<label><span class="n">bit depth</span><input id="b" type="range" min="1" max="16" step="1" value="8"><b class="v" id="bv"></b></label>
+<label><span class="n">amplitude</span><input id="a" type="range" min="0.05" max="1" step="0.05" value="0.9"><b class="v" id="av"></b></label>
+<label><span class="n">window shown (ms)</span><input id="w" type="range" min="2" max="40" step="1" value="10"><b class="v" id="wv"></b></label></div>
+<div class="card"><canvas id="c" width="900" height="320"></canvas></div>
+<div class="card"><table id="tb"></table><p class="note">Rule: sampling needs sr &gt; 2 x highest frequency (Nyquist). Each extra bit adds about 6 dB of SNR (SNR = 6.02 b + 1.76 dB for a full-scale sine). Speech ASR typically uses 16 kHz because most speech information lies below 8 kHz (REVIEW_REQUIRED: common practice, not a law).</p></div>
+<script>
+const $=i=>document.getElementById(i);
+function q(x,b){const L=Math.pow(2,b);const c=Math.max(-1,Math.min(1-1e-9,x));return (Math.floor((c+1)/2*L)+0.5)/L*2-1}
+function run(){const f=+$("f").value,sr=+$("sr").value,b=+$("b").value,A=+$("a").value,W=+$("w").value/1000;
+ $("fv").textContent=f+" Hz";$("srv").textContent=sr+" Hz";$("bv").textContent=b+" bit";$("av").textContent=A;$("wv").textContent=W*1000+" ms";
+ const c=$("c"),g=c.getContext("2d"),w=c.width,h=c.height;g.clearRect(0,0,w,h);const X=t=>40+t/W*(w-60),Y=v=>h/2-v*(h/2-24);
+ g.strokeStyle="#8886";g.beginPath();g.moveTo(40,Y(0));g.lineTo(w-10,Y(0));g.stroke();
+ g.strokeStyle="#999";g.lineWidth=2;g.beginPath();for(let i=0;i<=600;i++){const t=W*i/600,v=A*Math.sin(2*Math.PI*f*t);i?g.lineTo(X(t),Y(v)):g.moveTo(X(t),Y(v))}g.stroke();
+ const fa=((f%sr)<=sr/2)?(f%sr):sr-(f%sr);
+ // reconstructed alias: sample then draw sinc-free sine at alias freq with matching phase via sample fit
+ const N=Math.floor(W*sr);let se=0,sig=0,pts=[];
+ for(let n=0;n<=N;n++){const t=n/sr,v=A*Math.sin(2*Math.PI*f*t),qv=q(v,b);pts.push([t,v,qv]);se+=(v-qv)**2;sig+=v*v}
+ g.strokeStyle="#4C78A8";g.lineWidth=1.5;g.beginPath();pts.forEach(([t,v,qv],i)=>{const x=X(t);i?(g.lineTo(x,Y(pts[i-1][2])),g.lineTo(x,Y(qv))):g.moveTo(x,Y(qv))});g.stroke();
+ g.fillStyle="#4C78A8";pts.forEach(([t,v,qv])=>{g.beginPath();g.arc(X(t),Y(qv),3.5,0,7);g.fill()});
+ if(f>sr/2){ // draw alias: sine at fa that passes through the same samples (sign decided by correlation)
+  let best=0,bs=-1;[1,-1].forEach(s=>{let e=0;pts.forEach(([t,v])=>{e+=(A*s*Math.sin(2*Math.PI*fa*t)-v)**2});if(bs<0||e<bs){bs=e;best=s}});
+  g.strokeStyle="#E45756";g.lineWidth=2.5;g.beginPath();for(let i=0;i<=600;i++){const t=W*i/600,v=A*best*Math.sin(2*Math.PI*fa*t);i?g.lineTo(X(t),Y(v)):g.moveTo(X(t),Y(v))}g.stroke()}
+ g.fillStyle="#889";g.font="12px sans-serif";g.fillText("0 ms",40,h-6);g.fillText(W*1000+" ms",w-60,h-6);g.fillText("grey = true tone, blue = samples (quantized), red = alias seen by the system",50,16);
+ const snr=sig>0&&se>0?10*Math.log10(sig/se):Infinity;
+ const ok=f<sr/2;
+ $("tb").innerHTML="<tr><th>Nyquist (sr/2)</th><td>"+sr/2+" Hz</td></tr><tr><th>samples per cycle</th><td>"+(sr/f).toFixed(2)+"</td></tr><tr><th>apparent frequency</th><td class='"+(ok?"ok":"hot")+"'>"+fa.toFixed(0)+" Hz "+(ok?"(faithful)":"(ALIASED)")+"</td></tr><tr><th>levels</th><td>"+Math.pow(2,b)+"</td></tr><tr><th>measured SNR (in window)</th><td>"+(isFinite(snr)?snr.toFixed(1)+" dB":"inf")+"</td></tr><tr><th>theory SNR (full-scale sine)</th><td>"+(6.02*b+1.76).toFixed(1)+" dB</td></tr><tr><th>raw data rate</th><td>"+(sr*b/1000).toFixed(1)+" kbit/s</td></tr>"}
+["f","sr","b","a","w"].forEach(i=>$(i).addEventListener("input",run));run();
+</script>
+</body></html>
