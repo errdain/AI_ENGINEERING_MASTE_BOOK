@@ -274,3 +274,28 @@ def test_scaling_before_split_changes_statistics_and_feature_leak_inflates_score
     assert M.accuracy(y[te], leaky.predict(leak[te])) > 0.95  # leaked target: "great" score that fails in production
     all_scaled = (X - X.mean(0)) / X.std(0)
     assert not np.allclose(all_scaled[tr].mean(0), 0, atol=1e-12)  # train stats were polluted by test rows
+
+
+# ---------- additional metrics (2.40-2.44) ----------
+def test_multiclass_confusion_and_f1_averages_match_sklearn():
+    rng = np.random.default_rng(0); y = rng.integers(0, 4, 400); yhat = np.where(rng.random(400) < 0.7, y, rng.integers(0, 4, 400))
+    cm = M.confusion_matrix_multiclass(y, yhat)
+    np.testing.assert_array_equal(cm, skm.confusion_matrix(y, yhat))
+    assert M.f1_macro(cm) == pytest.approx(skm.f1_score(y, yhat, average="macro"))
+    assert M.f1_micro(cm) == pytest.approx(skm.f1_score(y, yhat, average="micro")) == pytest.approx(M.accuracy(y, yhat))
+    p, r, f = M.precision_recall_f1_per_class(cm)
+    np.testing.assert_allclose(p, skm.precision_score(y, yhat, average=None)); np.testing.assert_allclose(r, skm.recall_score(y, yhat, average=None))
+
+
+def test_average_precision_matches_sklearn_and_is_prevalence_sensitive():
+    rng = np.random.default_rng(1)
+    y = (rng.random(2000) < 0.05).astype(int); s = rng.normal(0, 1, 2000) + 2.0 * y
+    assert M.average_precision(y, s) == pytest.approx(skm.average_precision_score(y, s))
+    tied = np.round(s)  # ties
+    assert M.average_precision(y, tied) == pytest.approx(skm.average_precision_score(y, tied))
+    assert M.average_precision(y, rng.random(2000)) == pytest.approx(y.mean(), abs=0.03)  # random scores: AP ~ prevalence, AUC ~ 0.5
+
+
+def test_time_series_splits_never_train_on_the_future():
+    for tr, va in M.time_series_splits(100, 4):
+        assert tr.max() < va.min() and len(va) > 0

@@ -466,3 +466,49 @@ class FitResult:
 def fit_poly_train_val(degree: int, x_tr, y_tr, x_va, y_va, ridge: float = 0.0) -> FitResult:
     m = LinearRegression(ridge).fit(poly_features(x_tr, degree)[:, 1:], y_tr)
     return FitResult(mse(y_tr, m.predict(poly_features(x_tr, degree)[:, 1:])), mse(y_va, m.predict(poly_features(x_va, degree)[:, 1:])))
+
+
+# ---------------------------------------------------------------------------------------------
+# Additional metrics: multiclass confusion matrix / averaging, average precision, time-series CV (2.40-2.44)
+# ---------------------------------------------------------------------------------------------
+
+
+def confusion_matrix_multiclass(y, yhat, k: int | None = None) -> np.ndarray:
+    """cm[i, j] = number of samples with true class i predicted as class j."""
+    y, yhat = np.asarray(y, int), np.asarray(yhat, int)
+    k = int(max(y.max(), yhat.max()) + 1) if k is None else k
+    cm = np.zeros((k, k), int)
+    np.add.at(cm, (y, yhat), 1)
+    return cm
+
+
+def precision_recall_f1_per_class(cm: np.ndarray):
+    tp = np.diag(cm).astype(float); fp = cm.sum(0) - tp; fn = cm.sum(1) - tp
+    p = np.divide(tp, tp + fp, out=np.zeros_like(tp), where=(tp + fp) > 0)
+    r = np.divide(tp, tp + fn, out=np.zeros_like(tp), where=(tp + fn) > 0)
+    f = np.divide(2 * p * r, p + r, out=np.zeros_like(tp), where=(p + r) > 0)
+    return p, r, f
+
+
+def f1_macro(cm: np.ndarray) -> float: return float(precision_recall_f1_per_class(cm)[2].mean())
+
+
+def f1_micro(cm: np.ndarray) -> float:
+    tp = np.diag(cm).sum(); return float(tp / cm.sum())  # for single-label multiclass micro-F1 == accuracy
+
+
+def average_precision(y, score) -> float:
+    """Area under the precision-recall curve as sum over thresholds of (R_n - R_{n-1}) * P_n (scikit-learn's definition)."""
+    y, s = np.asarray(y, int), np.asarray(score, float)
+    order = np.argsort(-s, kind="mergesort"); y, s = y[order], s[order]
+    distinct = np.r_[np.flatnonzero(np.diff(s)), len(s) - 1]
+    tp = np.cumsum(y)[distinct]; fp = (1 + distinct) - tp
+    prec, rec = tp / (tp + fp), tp / y.sum()
+    return float(np.sum(np.diff(np.r_[0.0, rec]) * prec))
+
+
+def time_series_splits(n: int, n_splits: int = 4, min_train: int | None = None):
+    """Expanding-window splits: always train on the past, validate on the next block."""
+    min_train = min_train or n // (n_splits + 1)
+    block = (n - min_train) // n_splits
+    return [(np.arange(0, min_train + i * block), np.arange(min_train + i * block, min_train + (i + 1) * block)) for i in range(n_splits)]
