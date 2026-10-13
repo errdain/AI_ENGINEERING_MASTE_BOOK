@@ -40,8 +40,9 @@ Counts by script: `python tools/check_concepts.py tier-NN-*` (headings, metadata
 - Substantial and consistent: pages average 3–7 KB, none empty; every tier has a README with index, figures (PNG/GIF), self-contained interactive explorers and a tested lab. No orphan figure or explorer files; no TODO/TBD markers.
 - The labs are real: 294 tests pass in CI together with the rest of the repository.
 
-**Differences from Tiers 1–5 (not yet harmonized)**
-- Pages use the original 23-section standard (uppercase headings, metadata list). They do **not** have the learner-first additions of Tiers 1–5 (plain-words box, glossary, three-step code ladder with outputs verified by `tests/test_md_snippets.py`), so a beginner entry point is missing. Tiers 6–15 are also harder than 1–5 and would benefit most from it.
+**Differences from Tiers 1–5 (not yet harmonized, except Tier 6)**
+- Update: **Tier 6 now has the learner-first layer** (see `tier-06-tokenization-embeddings/reviews/author_open_items.md`). Tiers 7–15 still do not.
+- Pages (Tiers 7–15) use the original 23-section standard (uppercase headings, metadata list). They do **not** have the learner-first additions of Tiers 1–5 (plain-words box, glossary, three-step code ladder with outputs verified by `tests/test_md_snippets.py`), so a beginner entry point is missing. Tiers 6–15 are also harder than 1–5 and would benefit most from it.
 - Page code is not executed by CI. A standalone run found 312 of 336 blocks runnable and 24 not:
 
   *Missing optional package or service (3):*
