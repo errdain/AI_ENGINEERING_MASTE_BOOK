@@ -1,0 +1,52 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LayerNorm vs RMSNorm — Tier 8</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--ac3:#54A24B;--hot:#E45756;--grid:#d8dde6}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:1000px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:150px}
+input[type=range]{flex:1;min-width:130px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+select,input[type=number],button{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}
+button{cursor:pointer}button:hover{border-color:var(--ac)}
+canvas,svg.fig{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid);display:block}
+.note{color:var(--mut);font-size:13px}.warn{color:var(--hot);font-size:13px}
+table{border-collapse:collapse;font:13px ui-monospace,monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:right}th:first-child,td:first-child{text-align:left}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:720px){.row{grid-template-columns:1fr}}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;background:var(--ac);color:#fff;font-size:12px}
+.bar{height:14px;border-radius:3px;display:inline-block;vertical-align:middle}
+</style></head><body>
+<h1>LayerNorm vs RMSNorm on one token vector</h1><p class="sub">Generate a random token vector, give it a mean offset, a scale and optional outlier features, then see what each norm does to the mean, std and RMS.</p>
+<div class="row"><div class="card">
+<label><span class="n">feature dimension d</span><input id="d" type="range" min="16" max="1024" step="16" value="256"><b class="v" id="dv"></b></label>
+<label><span class="n">mean offset</span><input id="mu" type="range" min="-5" max="5" step="0.25" value="2"><b class="v" id="muv"></b></label>
+<label><span class="n">input std</span><input id="sd" type="range" min="0.1" max="8" step="0.1" value="3"><b class="v" id="sdv"></b></label>
+<label><span class="n">outlier features</span><input id="out" type="range" min="0" max="8" step="1" value="0"><b class="v" id="outv"></b></label>
+<label><span class="n">outlier size (x std)</span><input id="os" type="range" min="2" max="30" step="1" value="10"><b class="v" id="osv"></b></label>
+<label><span class="n">seed</span><input id="seed" type="number" value="1" min="1" max="999" style="width:80px"></label>
+<label><span class="n">epsilon (1e-k)</span><input id="eps" type="range" min="2" max="9" step="1" value="6"><b class="v" id="epsv"></b></label>
+</div><div class="card"><h2>Statistics</h2><table id="tb"></table>
+<p class="note">LayerNorm: (x&minus;&mu;)/&radic;(&sigma;&sup2;+&epsilon;), 2d params (&gamma;,&beta;). RMSNorm: x/&radic;(mean(x&sup2;)+&epsilon;), d params (&gamma;). Parameters: <b id="pc"></b>.</p><p class="warn" id="wn"></p></div></div>
+<div class="card"><canvas id="c" width="940" height="300"></canvas></div>
+<script>
+const $=i=>document.getElementById(i);const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){return Math.sqrt(-2*Math.log(r()+1e-12))*Math.cos(2*Math.PI*r())}
+const st=v=>{const n=v.length,m=v.reduce((a,b)=>a+b,0)/n,va=v.reduce((a,b)=>a+(b-m)**2,0)/n,ms=v.reduce((a,b)=>a+b*b,0)/n;return{m,sd:Math.sqrt(va),va,rms:Math.sqrt(ms),ms,mx:Math.max(...v.map(Math.abs))}};
+function run(){const d=+$("d").value,mu=+$("mu").value,sd=+$("sd").value,no=+$("out").value,os=+$("os").value,eps=Math.pow(10,-$("eps").value);
+["d","mu","sd","out","os","eps"].forEach(k=>$(k+"v").textContent=$(k).value);
+const r=rng(+$("seed").value);const x=Array.from({length:d},()=>mu+sd*gauss(r));for(let i=0;i<Math.min(no,d);i++)x[i]+=os*sd*(i%2?-1:1);
+const s0=st(x),ln=x.map(v=>(v-s0.m)/Math.sqrt(s0.va+eps)),rm=x.map(v=>v/Math.sqrt(s0.ms+eps)),s1=st(ln),s2=st(rm);
+const f=v=>v.toFixed(3);$("tb").innerHTML="<tr><th></th><th>mean</th><th>std</th><th>RMS</th><th>max |x|</th></tr>"+[["input",s0],["LayerNorm",s1],["RMSNorm",s2]].map(([n,s])=>"<tr><td>"+n+"</td><td>"+f(s.m)+"</td><td>"+f(s.sd)+"</td><td>"+f(s.rms)+"</td><td>"+f(s.mx)+"</td></tr>").join("");
+$("pc").textContent="LayerNorm "+2*d+", RMSNorm "+d+" (saves "+d+")";
+$("wn").textContent=s0.sd<1e-2?"Near-constant input: variance ~ epsilon, LayerNorm output is dominated by epsilon.":"";
+const c=$("c"),g=c.getContext("2d"),W=c.width,H=c.height;g.clearRect(0,0,W,H);
+const all=[[x,"--mut","input"],[ln,"--ac","LayerNorm"],[rm,"--ac2","RMSNorm"]];let lo=Math.min(...x),hi=Math.max(...x);const B=40,bw=(W-60)/B;
+const X=v=>40+(v-lo)/(hi-lo+1e-9)*(W-60);let mxc=1;const hs=all.map(([v])=>{const h=new Array(B).fill(0);v.forEach(t=>{h[Math.min(B-1,Math.floor((t-lo)/(hi-lo+1e-9)*B))]++});return h});
+hs.forEach((h,i)=>{if(i)return;mxc=Math.max(mxc,...h)});
+lo=Math.min(lo,...ln,...rm);hi=Math.max(hi,...ln,...rm);
+const H2=all.map(([v])=>{const h=new Array(B).fill(0);v.forEach(t=>{h[Math.min(B-1,Math.floor((t-lo)/(hi-lo+1e-9)*B))]++});return h});mxc=Math.max(...H2.map(h=>Math.max(...h)));
+const Y=n=>H-28-n/mxc*(H-50);g.globalAlpha=.55;
+H2.forEach((h,i)=>{g.fillStyle=cv(all[i][1]);h.forEach((n,b)=>g.fillRect(40+b*bw,Y(n),bw-1,H-28-Y(n)))});g.globalAlpha=1;
+g.fillStyle=cv("--mut");g.font="12px sans-serif";g.fillText("feature value (shared axis)",W/2-60,H-8);g.fillText(lo.toFixed(1),40,H-8);g.fillText(hi.toFixed(1),W-50,H-8);
+all.forEach(([,cl,n],j)=>{g.fillStyle=cv(cl);g.fillText("■ "+n,W-130,16+j*15)});}
+document.querySelectorAll("input").forEach(e=>e.addEventListener("input",run));run();matchMedia("(prefers-color-scheme: dark)").addEventListener("change",run);
+</script></body></html>

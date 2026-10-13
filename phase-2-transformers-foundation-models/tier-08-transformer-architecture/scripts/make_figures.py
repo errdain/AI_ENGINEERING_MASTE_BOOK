@@ -236,9 +236,59 @@ def fig_attn(m, chars):
     fig.tight_layout(); fig.savefig(OUT / "09_attention_maps_trained.png", dpi=80); plt.close(fig)
 
 
+# ---------------------------------------------------------------- 10 LayerNorm vs RMSNorm (numerical, no training needed)
+def fig_norms():
+    rng = np.random.default_rng(0); d = 512
+    x = rng.normal(2.0, 3.0, size=d)                        # one token vector with an offset (mean 2) and scale (std 3)
+    ln = (x - x.mean()) / np.sqrt(x.var() + 1e-6); rms = x / np.sqrt((x ** 2).mean() + 1e-6)
+    fig, axs = plt.subplots(1, 3, figsize=(13, 3.8), sharey=True)
+    for a, v, t, c in zip(axs, (x, ln, rms), ("input token vector", "after LayerNorm", "after RMSNorm"), (C[7], C[0], C[1])):
+        a.hist(v, bins=40, color=c, alpha=.9); a.axvline(v.mean(), color="k", ls="--", lw=1.5)
+        a.set_title(f"{t}\nmean {v.mean():.2f}, std {v.std():.2f}, RMS {np.sqrt((v**2).mean()):.2f}", fontsize=10.5)
+        a.set_xlabel("feature value (one token, d = 512)")
+    axs[0].set_ylabel("number of features"); axs[1].text(.03, .9, "dashed = mean\nLayerNorm: mean 0, std 1", transform=axs[1].transAxes, fontsize=9)
+    axs[2].text(.03, .9, "RMSNorm keeps the mean offset;\nonly the scale is fixed (RMS 1)", transform=axs[2].transAxes, fontsize=9)
+    fig.suptitle("LayerNorm centres and rescales; RMSNorm only rescales (no mean, no bias)", fontsize=12, weight="bold")
+    fig.tight_layout(); fig.savefig(OUT / "10_layernorm_vs_rmsnorm.png", dpi=80); plt.close(fig)
+
+
+# ---------------------------------------------------------------- 11 sizing: width, depth, heads  +  12 weight tying
+def fig_sizing():
+    T, V = 1024, 50257
+    def P(d, L, h=12, tie=True):
+        return count_params_formula(GPTConfig(vocab_size=V, block_size=T, n_layer=L, n_head=h, d_model=d, tie_weights=tie))
+    fig, axs = plt.subplots(1, 3, figsize=(14, 4))
+    ds = np.arange(256, 2049, 128); axs[0].plot(ds, [P(d, 12, 8) / 1e6 for d in ds], "o-", color=C[0], label="12 layers")
+    axs[0].plot(ds, [(12 * 12 * d * d) / 1e6 for d in ds], "--", color=C[3], label="12·L·d² only (blocks)")
+    axs[0].set_xlabel("hidden dimension d_model"); axs[0].set_ylabel("parameters (millions)"); axs[0].set_title("Width: parameters grow ~ d²"); axs[0].legend()
+    Ls = np.arange(2, 49, 2); axs[1].plot(Ls, [P(768, L, 12) / 1e6 for L in Ls], "o-", color=C[2])
+    axs[1].set_xlabel("number of layers L"); axs[1].set_ylabel("parameters (millions)"); axs[1].set_title("Depth: parameters grow linearly (d = 768)")
+    hs = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48]; axs[2].plot(range(len(hs)), [P(768, 12, h) / 1e6 for h in hs], "o-", color=C[1])
+    axs[2].set_xticks(range(len(hs))); axs[2].set_xticklabels(hs); axs[2].set_ylim(0, 160)
+    axs[2].set_xlabel("number of heads h (d = 768, 12 layers)"); axs[2].set_ylabel("parameters (millions)")
+    axs[2].set_title("Heads: parameter count does not change"); axs[2].text(.05, .08, "score-tensor memory ∝ h·T²\nhead width d_k = d/h shrinks", transform=axs[2].transAxes, fontsize=9)
+    fig.suptitle("Sizing a Transformer: V = 50 257, T = 1024, tied embeddings (from count_params_formula)", fontsize=12, weight="bold")
+    fig.tight_layout(); fig.savefig(OUT / "11_width_depth_heads.png", dpi=80); plt.close(fig)
+
+
+def fig_tying():
+    fig, axs = plt.subplots(1, 2, figsize=(11, 4))
+    cfgs = [("Mini-GPT\nd=96,L=3,V=41", 41, 96, 3, 64), ("GPT-2-small shape\nd=768,L=12", 50257, 768, 12, 1024), ("d=2048,L=24\nV=50k", 50257, 2048, 24, 2048)]
+    x = np.arange(len(cfgs)); w = .38
+    tied = [count_params_formula(GPTConfig(vocab_size=v, block_size=T, n_layer=L, n_head=8 if d % 8 == 0 else 1, d_model=d)) for _, v, d, L, T in cfgs]
+    unt = [count_params_formula(GPTConfig(vocab_size=v, block_size=T, n_layer=L, n_head=8 if d % 8 == 0 else 1, d_model=d, tie_weights=False)) for _, v, d, L, T in cfgs]
+    axs[0].bar(x - w / 2, np.array(tied) / 1e6, w, color=C[0], label="tied head"); axs[0].bar(x + w / 2, np.array(unt) / 1e6, w, color=C[3], label="untied head")
+    axs[0].set_xticks(x); axs[0].set_xticklabels([c[0] for c in cfgs], fontsize=9); axs[0].set_yscale("log"); axs[0].set_ylabel("parameters (millions, log)")
+    axs[0].set_title("Total parameters"); axs[0].legend()
+    sav = [(u - t) / u * 100 for t, u in zip(tied, unt)]; axs[1].bar(x, sav, .5, color=C[2])
+    for i, s in enumerate(sav): axs[1].text(i, s + .5, f"{s:.1f}%", ha="center")
+    axs[1].set_xticks(x); axs[1].set_xticklabels([c[0] for c in cfgs], fontsize=9); axs[1].set_ylabel("saved by tying (% of untied total)"); axs[1].set_title("Tying saves V·d: matters most for small models / big vocabularies")
+    fig.tight_layout(); fig.savefig(OUT / "12_weight_tying_savings.png", dpi=80); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_block(); r = fig_prepost(); print("pre/post (final act rms, grad ratio first/last):", r)
-    fig_act(); fig_masks(); fig_params()
+    fig_act(); fig_masks(); fig_params(); fig_norms(); fig_sizing(); fig_tying()
     m, h, chars = load_trained()
     gif_residual(m, chars); fig_train(h); gif_samples(h); fig_attn(m, chars)
     for p in sorted(OUT.iterdir()): print(p.name, p.stat().st_size // 1024, "KB")
