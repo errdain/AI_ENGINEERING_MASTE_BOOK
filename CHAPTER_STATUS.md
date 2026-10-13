@@ -14,4 +14,5 @@
 | 11 | LLM Inference & Optimization | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 | 12 | Modern Foundation-Model Architectures | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 | 13 | Vision AI | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
+| 15 | Foundation-Model Evaluation & Safety | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 ...
