@@ -4,6 +4,7 @@ Original figures generated from this tier's own code (see [`../../figures-common
 
 | Figure | Concept | Type | What it shows | File | Script |
 |---|---|---|---|---|---|
+| 2.2-1 | [2.2](../02.02-supervised-learning.md) | SVG | learn from labelled examples, then predict new ones | `fig_2_02_supervised_learning.svg` | `src/fig_2_02_supervised_learning.py` |
 | 2.1-1 | [2.1](../02.01-ai-vs-ml-vs-dl.md) | SVG | AI contains ML contains DL, and the XOR ladder | `fig_2_01_ai_ml_dl.svg` | `src/t2_basics.py` |
 | 2.9-1 | [2.9](../02.09-samples.md) | SVG | a learning curve and what slows it | `fig_2_09_learning_curve.svg` | `src/t2_basics.py` |
 | 2.10-1 | [2.10](../02.10-dataset-construction.md) | SVG | random row split versus group split | `fig_2_10_split_leakage.svg` | `src/t2_basics.py` |

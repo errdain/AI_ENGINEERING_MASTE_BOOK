@@ -4,7 +4,8 @@ Original figures generated from this tier's own code (see [`../../figures-common
 
 | Figure | Concept | Type | What it shows | File | Script |
 |---|---|---|---|---|---|
-| 3.2-1 | [3.2](../03.02-perceptron.md) | GIF | perceptron learning, step by step (animated) | `fig_3_02_perceptron.gif` | `src/t3_concepts.py` |
+| 3.2-1 | [3.2](../03.02-perceptron.md) | SVG | one perceptron computing AND | `fig_3_02_perceptron_diagram.svg` | `src/fig_3_02_perceptron_diagram.py` |
+| 3.2-2 | [3.2](../03.02-perceptron.md) | GIF | perceptron learning, step by step (animated) | `fig_3_02_perceptron.gif` | `src/t3_concepts.py` |
 | 3.4-1 | [3.4](../03.04-hidden-layers.md) | PNG | why a hidden layer helps: the circle problem | `fig_3_04_hidden_layers_boundary.png` | `src/t3_concepts.py` |
 | 3.7-1 | [3.7](../03.07-bias.md) | SVG | what the bias does to the decision boundary | `fig_3_07_bias_boundary.svg` | `src/t3_concepts.py` |
 | 3.9-1 | [3.9](../03.09-activation-functions.md) | SVG | activation functions and their derivatives | `fig_3_09_activations.svg` | `src/fig_3_09_activations.py` |
