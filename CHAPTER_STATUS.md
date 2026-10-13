@@ -12,4 +12,5 @@
 | 09 | Foundation Model Pretraining | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 | 10 | Fine-Tuning & Alignment | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 | 11 | LLM Inference & Optimization | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
+| 12 | Modern Foundation-Model Architectures | Claude | ChatGPT | Codex | ChatGPT | AUTHOR_DRAFT (code TESTED) |
 ...

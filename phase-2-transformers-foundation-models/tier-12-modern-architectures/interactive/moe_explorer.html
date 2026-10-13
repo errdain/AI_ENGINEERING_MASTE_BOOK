@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sparse MoE Architecture Explorer - Tier 12</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--hot:#E45756;--ok:#54A24B;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:170px}input[type=range]{flex:1;min-width:140px}b.v{min-width:64px;text-align:right;font-variant-numeric:tabular-nums}select,button,input[type=number]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}table{border-collapse:collapse;font:13px monospace;width:100%}td,th{padding:3px 8px;border-bottom:1px solid var(--grid);text-align:left}.stat{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.stat div{background:var(--bg);border:1px solid var(--grid);border-radius:8px;padding:4px 10px;font-size:13px}.stat b{font-variant-numeric:tabular-nums}.cell{display:inline-block;width:26px;height:26px;margin:1px;border-radius:5px;color:#fff;font:12px/26px monospace;text-align:center;cursor:pointer;user-select:none}.bar{height:14px;border-radius:4px;background:var(--ac)}</style></head><body>
+<h1>Sparse MoE: total vs active parameters, routing and capacity</h1><p class="sub">Replace each dense FFN by E experts and let a router send every token to its top-k. Memory pays for all E experts; compute pays for k. A skewed router overloads some experts and drops tokens (concepts 12.13-12.16; training-side MoE is Tier 9).</p>
+<div class="card">
+<label><span class="n">d_model</span><input id="d" type="range" min="512" max="8192" step="256" value="4096"><b class="v" id="dv"></b></label>
+<label><span class="n">expert d_ff</span><input id="f" type="range" min="512" max="32768" step="256" value="14336"><b class="v" id="fv"></b></label>
+<label><span class="n">layers</span><input id="l" type="range" min="4" max="96" value="32"><b class="v" id="lv"></b></label>
+<label><span class="n">experts E</span><input id="e" type="range" min="1" max="64" value="8"><b class="v" id="ev"></b></label>
+<label><span class="n">top-k</span><input id="k" type="range" min="1" max="8" value="2"><b class="v" id="kv"></b></label>
+<label><span class="n">tokens per batch T</span><input id="t" type="range" min="64" max="4096" step="64" value="1024"><b class="v" id="tv"></b></label>
+<label><span class="n">capacity factor</span><input id="c" type="range" min="0.8" max="3" step="0.05" value="1.25"><b class="v" id="cv"></b></label>
+<label><span class="n">router skew (imbalance)</span><input id="s" type="range" min="0" max="3" step="0.1" value="0.8"><b class="v" id="sv"></b></label>
+<label><span class="n">seed</span><input id="r" type="number" value="1" min="0" max="999" style="width:80px"><button id="rr">resample</button></label></div>
+<div class="card"><canvas id="cv2" width="900" height="300"></canvas><div class="stat" id="st"></div><p class="note" id="nt"></p></div>
+<script>
+const $=i=>document.getElementById(i);
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){return Math.sqrt(-2*Math.log(r()+1e-12))*Math.cos(2*Math.PI*r())}
+function run(){const d=+$("d").value,f=+$("f").value,L=+$("l").value,E=+$("e").value,K=Math.min(+$("k").value,E),T=+$("t").value,cf=+$("c").value,sk=+$("s").value,seed=+$("r").value;
+ [["d","dv"],["f","fv"],["l","lv"],["e","ev"],["k","kv"],["t","tv"],["c","cv"],["s","sv"]].forEach(([a,b])=>$(b).textContent=$(a).value);
+ const H=d/128,Hkv=Math.max(1,H/4),dh=128;const attn=d*H*dh*2+2*d*Hkv*dh,ffn=3*d*f,router=d*E;
+ const totalLayer=attn+E*ffn+(E>1?router:0),activeLayer=attn+K*ffn+(E>1?router:0);
+ const tot=L*totalLayer,act=L*activeLayer,dense=L*(attn+ffn);
+ // simulate routing
+ const r=rng(seed),load=new Array(E).fill(0),cap=Math.ceil(cf*T*K/E);let drop=0;
+ for(let i=0;i<T;i++){const lg=[];for(let e=0;e<E;e++)lg.push(-sk*3*e/Math.max(1,E-1)+gauss(r)*0.8);
+  const idx=lg.map((v,e)=>[v,e]).sort((a,b)=>b[0]-a[0]).slice(0,K);
+  idx.forEach(([v,e])=>{if(load[e]<cap)load[e]++;else drop++})}
+ const assigned=load.reduce((a,b)=>a+b,0),mean=T*K/E;
+ const c=$("cv2"),x=c.getContext("2d");x.clearRect(0,0,c.width,c.height);
+ const W=c.width,Hh=c.height,bw=(W-60)/E,mx=Math.max(cap*1.2,...load,1);
+ for(let e=0;e<E;e++){const h=load[e]/mx*(Hh-60);x.fillStyle=load[e]>=cap?"#E45756":"#4C78A8";x.fillRect(40+e*bw+2,Hh-30-h,bw-4,h)}
+ x.strokeStyle="#889";x.setLineDash([5,4]);const yc=Hh-30-cap/mx*(Hh-60);x.beginPath();x.moveTo(30,yc);x.lineTo(W-10,yc);x.stroke();x.setLineDash([]);
+ x.fillStyle="#889";x.font="12px sans-serif";x.fillText("capacity "+cap,W-110,yc-4);x.fillText("expert →",W/2-20,Hh-8);x.fillText("tokens",2,14);
+ x.strokeStyle="#43a";x.beginPath();const ym=Hh-30-mean/mx*(Hh-60);x.setLineDash([2,3]);x.moveTo(30,ym);x.lineTo(W-10,ym);x.stroke();x.setLineDash([]);x.fillText("perfect balance "+mean.toFixed(0),40,ym-4);
+ const B=n=>n>=1e9?(n/1e9).toFixed(2)+"B":(n/1e6).toFixed(0)+"M";
+ $("st").innerHTML=`<div>total params <b>${B(tot)}</b></div><div>active params/token <b>${B(act)}</b> (${(100*act/tot).toFixed(0)}%)</div><div>dense same-width model <b>${B(dense)}</b></div><div>weights (bf16) <b>${(tot*2/2**30).toFixed(0)} GiB</b></div><div>FFN compute vs dense <b>${K}×</b></div><div>max/mean load <b>${(Math.max(...load)/mean).toFixed(2)}</b></div><div>dropped expert-slots <b>${(100*drop/(T*K)).toFixed(1)}%</b></div>`;
+ $("nt").textContent="Attention uses H=d/128 heads, 4:1 GQA, no embeddings counted. Blue = under capacity, red = full (overflow tokens are dropped or re-routed, depending on the system). Raise the router skew to see why training adds a load-balancing loss; raise the capacity factor to trade memory/compute for fewer drops. Note E=1 is an ordinary dense model."}
+["d","f","l","e","k","t","c","s","r"].forEach(i=>$(i).addEventListener("input",run));$("rr").onclick=()=>{$("r").value=(+$("r").value+1)%1000;run()};run();
+</script></body></html>
