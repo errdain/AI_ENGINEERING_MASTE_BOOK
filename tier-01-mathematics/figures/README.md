@@ -4,6 +4,7 @@ Original figures generated from this tier's own code (see [`../../figures-common
 
 | Figure | Concept | Type | What it shows | File | Script |
 |---|---|---|---|---|---|
+| 1.1-1 | [1.1](../01.01-scalars.md) | SVG | from one number to blocks of numbers | `fig_1_01_dimension_ladder.svg` | `src/fig_1_01_dimension_ladder.py` |
 | 1.4-1 | [1.4](../01.04-tensors.md) | PNG | a batch of sequences is a 3-D tensor | `fig_1_04_tensor_3d.png` | `src/t1_tensors.py` |
 | 1.6-1 | [1.6](../01.06-dimensions-and-axes.md) | SVG | which axis does a reduction remove? | `fig_1_06_axes_reduction.svg` | `src/t1_tensors.py` |
 | 1.7-1 | [1.7](../01.07-broadcasting.md) | GIF | broadcasting (4, 1) + (1, 5), animated | `fig_1_07_broadcasting.gif` | `src/t1_tensors.py` |
