@@ -47,7 +47,7 @@ Rule used for proposals: author and critic are always different models (Claude â
 | Tier | Phase | Topic | Concepts | Author | Critic | Code Review | Final Review | Status | Source |
 |---|---|---|---|---|---|---|---|---|---|
 | 01 | 1 | Mathematics for AI | 47 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (47 concepts, lab, revision sheet; ready for Critic) | Reference |
-| 02 | 1 | Machine Learning Fundamentals | 51 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (51 concepts + lab; revision sheet pending) | Reference |
+| 02 | 1 | Machine Learning Fundamentals | 51 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (51 concepts, lab, revision sheet; ready for Critic) | Reference |
 | 03 | 1 | Neural Networks | 32 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
 | 04 | 1 | Deep Learning Training & Optimization | 41 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
 | 05 | 1 | Sequence Models | 27 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Reference |
@@ -92,4 +92,4 @@ Rule used for proposals: author and critic are always different models (Claude â
 - Tier 1: all 47 concepts drafted as `tier-01-mathematics/01.01-scalars.md` â€¦ `01.47-local-global-minima.md`; lab in `tier-01-mathematics/lab/`; condensed `tier-01-mathematics/revision_sheet.md`. 105 tests passing (77 `code/`, 28 `lab/`; NumPy 2.5.4, torch 2.14.1). Next stage: Critic (ChatGPT) on branch `chatgpt-bgc-1012`.
 - Open proposal: add "number of axes" vs "vector dimension" to `GLOSSARY.md` (needs Critic decision).
 - `AUTHOR_REVIEW_GUIDE.md` refers to `ROADMAP.md`; the file is `ROADMAP_V1.0_FROZEN.md`.
-- Tier 2: all 51 concepts drafted in `tier-02-ml-fundamentals/` (one file each); `code/mlkit.py` + `lab/` parts 1â€“4 with `lab/README.md`; run `python -m pytest -q code lab` (83 tests). PROPOSE_ADDITION raised in `tier-02-ml-fundamentals/reviews/author_open_items.md`: Tier 1 refers to PCA, Naive Bayes, decision trees and named regression models that are not in the frozen Tier 2 list; duplication 2.45/2.50 flagged. Remaining before Critic: condensed `revision_sheet.md`.
+- Tier 2: all 51 concepts drafted in `tier-02-ml-fundamentals/` (one file each); `code/mlkit.py` + `lab/` parts 1â€“4 with `lab/README.md`; run `python -m pytest -q code lab` (83 tests). PROPOSE_ADDITION raised in `tier-02-ml-fundamentals/reviews/author_open_items.md`: Tier 1 refers to PCA, Naive Bayes, decision trees and named regression models that are not in the frozen Tier 2 list; duplication 2.45/2.50 flagged. Condensed `tier-02-ml-fundamentals/revision_sheet.md` added. Next stage: Critic (ChatGPT) on branch `chatgpt-bgc-1012`.
