@@ -1,0 +1,5 @@
+numpy>=2.0
+pytest>=8
+torch>=2.6   # the whole tier uses PyTorch
+matplotlib>=3.8   # figures only (figures/src)
+pillow>=10        # figures only (via figures-common)
