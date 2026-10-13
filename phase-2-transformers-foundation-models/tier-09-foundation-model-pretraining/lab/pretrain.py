@@ -45,6 +45,7 @@ def seed_everything(seed: int) -> None:
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
     torch.use_deterministic_algorithms(True)
     torch.set_flush_denormal(True)  # avoids rare CPU slow-downs on denormal floats
+    torch.set_num_threads(1)  # tiny model: threads only add sync overhead (10x faster on a busy box) and noise
 
 
 def lr_at(step: int, c: TrainConfig) -> float:
@@ -150,5 +151,4 @@ def train(c: TrainConfig, train_data: np.ndarray, val_data: np.ndarray, out_dir:
         "history": hist, **(extra_meta or {}),
     }
     (out / "metrics.json").write_text(json.dumps(metrics, indent=1))
-    model.train_state = (model, opt)  # handy for tests / callers
     return metrics

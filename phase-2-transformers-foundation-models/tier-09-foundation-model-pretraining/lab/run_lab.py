@@ -21,7 +21,7 @@ from tok_bpe import ByteBPE
 BENCH = ["the old sailor describes the quiet river near the hill and the pilot finds a heavy box at the harbor today again"]
 
 
-def prepare(seed: int = 0, n_docs: int = 400, merges: int = 120, leak_benchmark: bool = True):
+def prepare(seed: int = 0, n_docs: int = 600, merges: int = 120, leak_benchmark: bool = True):
     raw = dp.make_synthetic_crawl(seed, n_docs)
     if leak_benchmark:  # simulate a benchmark item leaking into the crawl (9.11/9.12)
         raw.append({"id": "leak", "text": BENCH[0] + " " + BENCH[0], "source": "web", "license": "cc0", "url": "x"})

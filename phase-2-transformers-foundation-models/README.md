@@ -15,5 +15,6 @@ Every tier folder contains:
 | 06 | [Tokenization & Embeddings](tier-06-tokenization-embeddings/README.md) | AUTHOR_DRAFT |
 | 07 | [Attention](tier-07-attention/README.md) | AUTHOR_DRAFT |
 | 08 | [Transformer Architecture](tier-08-transformer-architecture/README.md) | AUTHOR_DRAFT |
+| 09 | [Foundation Model Pretraining](tier-09-foundation-model-pretraining/README.md) | AUTHOR_DRAFT |
 
 Smoke-test all interactive pages: `python tools/check_interactive.py phase-2-transformers-foundation-models`.

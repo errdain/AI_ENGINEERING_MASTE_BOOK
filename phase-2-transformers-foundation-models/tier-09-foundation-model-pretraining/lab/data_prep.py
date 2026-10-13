@@ -35,7 +35,7 @@ _CHAT = ["could you help me with", "i am trying to understand", "thanks, that ex
          "please show an example of", "i still do not get"]
 _TOPICS = ["gradient descent", "binary search", "tokenizers", "unit tests", "the weather", "cooking rice", "sorting lists"]
 
-LICENSES = {"wiki": "cc-by-sa", "code": "mit", "chat": "cc0", "web": "unknown"}
+LICENSES = {"wiki": "cc-by-sa", "code": "mit", "chat": "cc0", "web": "cc-by"}
 ALLOWED_LICENSES = {"cc-by-sa", "mit", "cc0", "cc-by", "public-domain"}  # REVIEW_REQUIRED: legal policy is org-specific
 
 
