@@ -26,3 +26,15 @@
 - REVIEW_REQUIRED: 1.23 "saddle points far more common than bad local minima in high-dimensional nets" is a widely cited empirical/theoretical claim; add a citation.
 - REVIEW_REQUIRED: 1.27 note that GPU runs aren't bitwise reproducible across devices; verify wording.
 - Note: `np.trapezoid` used in tests requires NumPy ≥ 2.0.
+
+## Batch 4 (1.32–1.47)
+
+- TESTED: `code/info_numerics.py`, 25 new tests in `test_info_numerics.py` (77 total, NumPy 2.5.4, Python 3.14). All 47 concept files exist, one per concept.
+- NOT_TESTED: int8 wraparound line in 1.44 (behaviour/warnings are NumPy-version-sensitive; observed `-128` with a RuntimeWarning on 2.5.4); bfloat16 row of the dtype table in 1.40 (NumPy has no native bf16); all PyTorch behaviour claims (loss scaling, `CrossEntropyLoss`, `torch.logsumexp`, anomaly detection).
+- NOT_TESTED: exercises in 1.32–1.47 are described but not shipped as code (planned Tier 1 lab).
+- REVIEW_REQUIRED: 1.40 hardware/dtype statements (fp16 vs bf16 training practice, fp8, Adam optimizer-state memory ≈ 8 bytes/param) and the 7B-model memory arithmetic.
+- REVIEW_REQUIRED: 1.46 sharp-vs-flat minima and residual-connection landscape-smoothing claims need citations; 1.47 "bad local minima are rare in overparameterized nets" needs precise, cited wording.
+- REVIEW_REQUIRED: 1.42 overflow thresholds (verified numerically here: float64 ≈709.78, float32 ≈88.72, float16 ≈11.09).
+- Glossary/terminology to approve: "base rate", "calibration", "perplexity", "condition number", "saddle point", "basin of attraction", "vector–Jacobian product", "i.i.d.".
+- Forward references to other tiers: Tier 2 (PCA, Naive Bayes, regression, decision trees), Tier 4 (mixed precision, init, optimizers, loss functions), Tier 7 (attention), Tier 10 (RLHF/DPO/LoRA), Tier 11 (quantization), Tier 15 (calibration, metrics), Tier 31 (drift monitoring). Critic should verify against the frozen roadmap.
+- Possible duplication to adjudicate: softmax/log-sum-exp appear in 1.28, 1.37, 1.39, 1.43 (1.43 is intended as the authoritative location); condition number appears in 1.14, 1.19, 1.39, 1.45, 1.46.
