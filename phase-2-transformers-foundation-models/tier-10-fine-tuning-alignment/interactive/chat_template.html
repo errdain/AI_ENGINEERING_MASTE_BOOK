@@ -1,0 +1,28 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chat Template Renderer - Tier 10</title><style>:root{--bg:#fff;--fg:#1d2430;--mut:#667;--card:#f4f6fa;--ac:#4C78A8;--ac2:#F58518;--ok:#54A24B;--hot:#E45756;--grid:#d8dde6}@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e6e9ef;--mut:#9aa3b2;--card:#1e242e;--grid:#343c4a}}*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:auto}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 6px}p.sub{color:var(--mut);margin:0 0 14px}.card{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:12px}label{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}label span.n{min-width:190px}input[type=range]{flex:1;min-width:140px}b.v{min-width:70px;text-align:right;font-variant-numeric:tabular-nums}select,button,textarea,input[type=text]{background:var(--bg);color:var(--fg);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;font:inherit}button{cursor:pointer}textarea{width:100%;min-height:54px;font:13px monospace}canvas{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--grid)}.note{color:var(--mut);font-size:13px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:700px){.grid2{grid-template-columns:1fr}}table{border-collapse:collapse;font:13px monospace;width:100%}td,th{padding:2px 8px;border-bottom:1px solid var(--grid);text-align:left}.tok{display:inline-block;padding:1px 5px;margin:1px;border-radius:4px;font:12px monospace;white-space:pre}.mask{background:var(--grid);color:var(--mut)}.train{background:var(--ok);color:#fff}.spec{outline:2px solid var(--ac2)}pre{white-space:pre-wrap;background:var(--bg);border:1px solid var(--grid);border-radius:6px;padding:8px;font:13px monospace;margin:0}</style></head><body>
+<h1>Chat templates and the SFT loss mask</h1><p class="sub">A chat is flattened into one string with special markers; the model is trained to predict only the assistant tokens (loss mask). Edit the messages, switch template style, and see which tokens receive loss. Template formats here are simplified illustrations - exact whitespace and special tokens differ per model (REVIEW_REQUIRED); always use the tokenizer's own template.</p>
+<div class="card">
+<label><span class="n">template style</span><select id="tp"><option value="chatml">ChatML-style</option><option value="inst">[INST]-style</option><option value="alp">Alpaca-style</option></select></label>
+<label><span class="n">add generation prompt</span><input type="checkbox" id="gp"><span class="note">append the assistant header (inference); drops the last answer</span></label>
+<label><span class="n">train on prompt tokens too</span><input type="checkbox" id="pm"><span class="note">off = standard SFT masking (loss on assistant only)</span></label>
+<div class="note">system</div><textarea id="s">You are a concise assistant.</textarea>
+<div class="note">user 1</div><textarea id="u1">Capital of France?</textarea>
+<div class="note">assistant 1</div><textarea id="a1">Paris.</textarea>
+<div class="note">user 2</div><textarea id="u2">And Italy?</textarea>
+<div class="note">assistant 2</div><textarea id="a2">Rome.</textarea></div>
+<div class="card"><h2>Rendered string</h2><pre id="r"></pre></div>
+<div class="card"><h2>Tokens (crude stand-in: words, spaces and one chip per special token)</h2><div id="k"></div><div id="o" class="note" style="margin-top:6px"></div></div>
+<script>
+const $=i=>document.getElementById(i);
+const T={chatml:{sp:["<|im_start|>","<|im_end|>"],sys:(s)=>`<|im_start|>system\n${s}<|im_end|>\n`,user:(u)=>`<|im_start|>user\n${u}<|im_end|>\n`,ah:"<|im_start|>assistant\n",asst:(a)=>`${a}<|im_end|>\n`},
+inst:{sp:["<s>","</s>","[INST]","[/INST]","<<SYS>>","<</SYS>>"],sys:null,user:(u,first,s)=>`<s>[INST] ${first&&s?`<<SYS>>\n${s}\n<</SYS>>\n\n`:""}${u} [/INST]`,ah:" ",asst:(a)=>` ${a} </s>`},
+alp:{sp:["### Instruction:","### Response:","</s>"],sys:(s)=>`${s}\n\n`,user:(u)=>`### Instruction:\n${u}\n\n`,ah:"### Response:\n",asst:(a)=>`${a}</s>\n\n`}};
+function run(){const t=T[$("tp").value],s=$("s").value,gp=$("gp").checked,all=$("pm").checked;const turns=[[$("u1").value,$("a1").value],[$("u2").value,$("a2").value]];
+ const segs=[];const add=(txt,tr)=>segs.push([txt,tr]);
+ if(t.sys)add(t.sys(s),all);
+ turns.forEach(([u,a],i)=>{const last=i==turns.length-1;add(t.user(u,i==0,s),all);if(last&&gp){add(t.ah,all)}else{ if($("tp").value=="chatml")add(T.chatml.ah,all);else if($("tp").value=="alp")add(t.ah,all);add(t.asst(a),true)}});
+ $("r").textContent=segs.map(x=>x[0]).join("").replace(/\n/g,"⏎\n");
+ const sp=t.sp.slice().sort((x,y)=>y.length-x.length).map(x=>x.replace(/[|\[\]<>\/\\*+?.()^$]/g,"\\$&")),re=new RegExp("("+sp.join("|")+"|\\s+|[A-Za-z0-9]+|[^\\sA-Za-z0-9])","g");
+ let h="",tr=0,n=0;segs.forEach(([txt,train])=>{(txt.match(re)||[]).forEach(w=>{const isS=t.sp.includes(w);h+=`<span class="tok ${train?"train":"mask"} ${isS?"spec":""}">${w.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\n/g,"⏎")}</span>`;n++;if(train)tr++})});
+ $("k").innerHTML=h;$("o").innerHTML=`Green = loss applied, grey = masked. Orange outline = special token. <b>${tr}</b> of <b>${n}</b> tokens train (${(100*tr/n).toFixed(0)} %). Security: if a user message contains a literal special string such as "${t.sp[0]}", a naive tokenizer may turn it into the real control token (prompt-injection surface) - tokenizers should escape or disallow specials in user text.`}
+["tp","gp","pm","s","u1","a1","u2","a2"].forEach(i=>$(i).addEventListener("input",run));run();
+</script></body></html>
