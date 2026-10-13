@@ -1,7 +1,7 @@
-"""usage: mark_tier.py NN "Topic" "folder-slug" "README title" -- adds/updates rows in CHAPTER_STATUS.md and phase README, sorted."""
+"""usage: mark_tier.py NN "Topic" "folder-slug" "README title" -- adds/updates rows in CHAPTER_STATUS.md and PHASE_2_OVERVIEW.md, sorted."""
 import sys, re
 nn, topic, slug, title = sys.argv[1:5]
-P = "phase-2-transformers-foundation-models/README.md"
+P = "PHASE_2_OVERVIEW.md"
 row = f"| {nn} | [{title}]({slug}/README.md) | AUTHOR_DRAFT |"
 lines = open(P).read().rstrip("\n").split("\n")
 lines = [l for l in lines if not l.startswith(f"| {nn} |")]

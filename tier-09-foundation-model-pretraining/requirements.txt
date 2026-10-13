@@ -1,0 +1,6 @@
+numpy>=2.0
+pytest>=8
+torch>=2.6   # labs and tests use PyTorch as the reference implementation
+matplotlib>=3.8   # figure scripts (figures/src)
+pillow>=10        # GIF writer
+# optional, only for tools/check_interactive.py: playwright

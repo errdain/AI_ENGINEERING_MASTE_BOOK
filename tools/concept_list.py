@@ -1,7 +1,7 @@
 """Print canonical concept list for a tier from the frozen roadmap.
-usage: python tools/concept_list.py 6          -> lines: "6.1<TAB>Text preprocessing<TAB>concepts/06.01-text-preprocessing.md"
+usage: python tools/concept_list.py 6          -> lines: "6.1<TAB>Text preprocessing<TAB>06.01-text-preprocessing.md"
        python tools/concept_list.py 6 --json
-Filenames are canonical: concepts/{tier:02d}.{n:02d}-{slug}.md"""
+Filenames are canonical: {tier:02d}.{n:02d}-{slug}.md (inside tier-NN-<slug>/)"""
 import re, sys, json
 tier = int(sys.argv[1])
 text = open(__file__.rsplit("/tools/", 1)[0] + "/ROADMAP_V1.0_FROZEN.md", encoding="utf-8").read()
@@ -17,7 +17,7 @@ for i in range(1, len(parts), 2):
     items.append((int(parts[i]), parts[i + 1].strip(" ⸻")))
 def slug(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60]
-out = [(f"{tier}.{n}", t, f"concepts/{tier:02d}.{n:02d}-{slug(t)}.md") for n, t in items]
+out = [(f"{tier}.{n}", t, f"{tier:02d}.{n:02d}-{slug(t)}.md") for n, t in items]
 if "--json" in sys.argv: print(json.dumps(out))
 else:
     for o in out: print("\t".join(o))

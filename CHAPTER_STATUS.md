@@ -51,16 +51,16 @@ Rule used for proposals: author and critic are always different models (Claude â
 | 03 | 1 | Neural Networks | 32 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, revision sheet; ready for Critic) | Reference |
 | 04 | 1 | Deep Learning Training & Optimization | 41 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (41 concepts, pipeline + profiler lab, revision sheet; ready for Critic) | Reference |
 | 05 | 1 | Sequence Models | 27 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (27 concepts, comparison lab, revision sheet; ready for Critic) | Reference |
-| 06 | 2 | Tokenization & Embeddings | 32 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Reference |
-| 07 | 2 | Attention | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Reference |
-| 08 | 2 | Transformer Architecture | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Reference |
-| 09 | 2 | Foundation Model Pretraining | 31 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (31 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
-| 10 | 2 | Fine-Tuning & Alignment | 35 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (35 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
-| 11 | 2 | LLM Inference & Optimization | 47 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (47 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
-| 12 | 2 | Modern Foundation-Model Architectures | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
-| 13 | 2 | Vision AI | 32 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
-| 14 | 2 | Speech, Audio & Video AI | 33 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (33 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
-| 15 | 2 | Foundation-Model Evaluation & Safety | 35 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (35 concepts, lab, figures; drafted by ChatGPT under phase-2-transformers-foundation-models/; ready for Critic) | Proposed |
+| 06 | 2 | Tokenization & Embeddings | 32 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Reference |
+| 07 | 2 | Attention | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Reference |
+| 08 | 2 | Transformer Architecture | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Reference |
+| 09 | 2 | Foundation Model Pretraining | 31 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (31 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Proposed |
+| 10 | 2 | Fine-Tuning & Alignment | 35 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (35 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Proposed |
+| 11 | 2 | LLM Inference & Optimization | 47 | Claude | ChatGPT | Codex | ChatGPT | DRAFT COMPLETE (47 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Proposed |
+| 12 | 2 | Modern Foundation-Model Architectures | 30 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (30 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Proposed |
+| 13 | 2 | Vision AI | 32 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (32 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Proposed |
+| 14 | 2 | Speech, Audio & Video AI | 33 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (33 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Proposed |
+| 15 | 2 | Foundation-Model Evaluation & Safety | 35 | ChatGPT | Claude | Codex | ChatGPT | DRAFT COMPLETE (35 concepts, lab, figures; drafted by ChatGPT; restructured into the Tier 1-5 layout; ready for Critic) | Proposed |
 | 16 | 3 | Raw LLM Engineering & Multi-Provider Systems | 70 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
 | 17 | 3 | Prompt & Context Engineering | 40 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
 | 18 | 3 | Memory Systems | 32 | Claude | ChatGPT | Codex | ChatGPT | NOT STARTED | Proposed |
